@@ -738,6 +738,10 @@
         Pick an existing category or type a new one
       </div>
     </div>
+    <div class="form-group">
+      <label>Serial / Asset Code <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input type="text" id="device-modal-serial" placeholder="e.g. SN-00123 or Asset #42" autocomplete="off" />
+    </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('device-modal')">Cancel</button>
       <button class="btn-confirm" id="device-modal-btn" onclick="confirmSaveDevice()">+ Add Device</button>
@@ -963,6 +967,30 @@ async function refreshData() {
           status:     f.Status     || 'active'
         };
       }).filter(r => r.status === 'active' && r.endDate >= today);
+
+      // Auto-checkout any reservations whose start date has arrived
+      const didAutoCheckout = await autoCheckoutReservations();
+      if (didAutoCheckout) {
+        // Reload checkouts so the new entries are reflected before rendering
+        const coRes2 = await graph(
+          `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.checkoutsListName)}/items?$expand=fields&$top=100`
+        );
+        checkouts = {};
+        for (const item of (coRes2.value || [])) {
+          const f = item.fields;
+          checkouts[f.Title] = {
+            employee:       f.Employee       || '',
+            project:        f.Project        || '',
+            timestamp:      f.CheckoutTimestamp || 0,
+            category:       f.Category       || '',
+            deviceName:     f.DeviceName     || '',
+            expectedReturn: f.ExpectedReturn || '',
+            itemId:         item.id
+          };
+        }
+        // Remove auto-checked-out reservations from the in-memory list
+        reservations = reservations.filter(r => r.status === 'active');
+      }
     } catch (e) {
       console.warn('DeviceReservations list not found — reservations disabled:', e.message);
       reservations = [];
@@ -1014,6 +1042,40 @@ async function refreshData() {
     console.error('Refresh error:', e);
     toast('Could not refresh data — check your connection', 'error');
   }
+}
+
+// ── Auto-checkout when a reservation's start date arrives ─────
+async function autoCheckoutReservations() {
+  const today = todayISO();
+  const due = reservations.filter(r =>
+    r.startDate <= today &&      // start date has arrived
+    r.status === 'active' &&     // not already processed
+    !checkouts[r.deviceId]       // device not already checked out
+  );
+  if (due.length === 0) return false;
+
+  let anyDone = false;
+  for (const r of due) {
+    const d = ALL_DEVICES.find(x => x.id === r.deviceId);
+    if (!d || d.status === 'maintenance') continue;
+    try {
+      // Check out the device using the reservation details;
+      // expected return = reservation end date
+      await doCheckout(r.deviceId, d.name, d.category, r.employee, r.project, r.endDate);
+      // Mark reservation so it never triggers again
+      await graph(
+        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.reservationsListName)}/items/${r.id}`,
+        { method: 'PATCH', body: JSON.stringify({ fields: { Status: 'auto-checked-out' } }) }
+      );
+      // Update in-memory status so the filter above works correctly
+      r.status = 'auto-checked-out';
+      anyDone = true;
+      toast(`📅 ${d.name} automatically checked out to ${r.employee} — reservation started`, 'info');
+    } catch (e) {
+      console.warn('Auto-checkout failed for', r.deviceName, ':', e.message);
+    }
+  }
+  return anyDone;
 }
 
 async function doCheckout(deviceId, deviceName, category, employee, project, expectedReturn) {
@@ -1228,7 +1290,7 @@ function deviceCard(d) {
       <div class="device-card-top">
         <div>
           <div class="device-name">${escHtml(d.name)}</div>
-          <div class="device-type">${escHtml(d.category)}</div>
+          <div class="device-type">${escHtml(d.category)}${d.serialCode ? `<span style="margin-left:6px;color:var(--muted);font-size:10px;font-family:monospace">${escHtml(d.serialCode)}</span>` : ''}</div>
         </div>
         <span class="status-pill ${isOut ? 'out' : 'available'}">${isOut ? 'Checked Out' : 'Available'}</span>
       </div>
@@ -1423,10 +1485,11 @@ async function loadDevices() {
     );
     ALL_DEVICES = (res.value || []).map(item => ({
       id:              item.fields.Title,
-      name:            item.fields.DeviceName || '',
-      category:        item.fields.Category   || '',
-      sortOrder:       item.fields.SortOrder  || 0,
-      status:          item.fields.Status     || 'active',
+      name:            item.fields.DeviceName  || '',
+      category:        item.fields.Category    || '',
+      sortOrder:       item.fields.SortOrder   || 0,
+      status:          item.fields.Status      || 'active',
+      serialCode:      item.fields.SerialCode  || '',
       inventoryItemId: item.id
     })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   } catch (e) {
@@ -1495,6 +1558,7 @@ function openAddDevice() {
   document.getElementById('device-modal-btn').textContent   = '+ Add Device';
   document.getElementById('device-modal-name').value        = '';
   document.getElementById('device-modal-category').value    = '';
+  document.getElementById('device-modal-serial').value      = '';
   // Populate category suggestions from existing devices
   const cats = [...new Set(ALL_DEVICES.map(d => d.category))];
   document.getElementById('category-suggestions').innerHTML =
@@ -1511,6 +1575,7 @@ function openEditDevice(inventoryItemId) {
   document.getElementById('device-modal-btn').textContent   = '✓ Save Changes';
   document.getElementById('device-modal-name').value        = d.name;
   document.getElementById('device-modal-category').value    = d.category;
+  document.getElementById('device-modal-serial').value      = d.serialCode || '';
   const cats = [...new Set(ALL_DEVICES.map(x => x.category))];
   document.getElementById('category-suggestions').innerHTML =
     cats.map(c => `<option value="${escHtml(c)}">`).join('');
@@ -1519,8 +1584,9 @@ function openEditDevice(inventoryItemId) {
 }
 
 async function confirmSaveDevice() {
-  const name     = document.getElementById('device-modal-name').value.trim();
-  const category = document.getElementById('device-modal-category').value.trim();
+  const name       = document.getElementById('device-modal-name').value.trim();
+  const category   = document.getElementById('device-modal-category').value.trim();
+  const serialCode = document.getElementById('device-modal-serial').value.trim();
   if (!name)     { shakeInput('device-modal-name');     return; }
   if (!category) { shakeInput('device-modal-category'); return; }
 
@@ -1530,7 +1596,7 @@ async function confirmSaveDevice() {
       // Edit existing device
       await graph(
         `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items/${editingDeviceItemId}`,
-        { method: 'PATCH', body: JSON.stringify({ fields: { DeviceName: name, Category: category } }) }
+        { method: 'PATCH', body: JSON.stringify({ fields: { DeviceName: name, Category: category, SerialCode: serialCode } }) }
       );
       toast(`${name} updated`, 'success');
     } else {
@@ -1543,7 +1609,8 @@ async function confirmSaveDevice() {
             Title:      id,
             DeviceName: name,
             Category:   category,
-            SortOrder:  ALL_DEVICES.length
+            SortOrder:  ALL_DEVICES.length,
+            SerialCode: serialCode
           }})
         }
       );
