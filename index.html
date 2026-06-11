@@ -419,14 +419,19 @@
       background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
     }
     .manage-empty .empty-icon { font-size: 48px; margin-bottom: 12px; }
-    .icon-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .icon-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
     .icon-option {
-      width: 38px; height: 38px; font-size: 20px; display: flex; align-items: center;
+      width: 36px; height: 36px; font-size: 20px; display: flex; align-items: center;
       justify-content: center; border: 2px solid var(--border); border-radius: 8px;
       cursor: pointer; transition: border-color .15s, background .15s;
     }
-    .icon-option:hover  { border-color: var(--brand-light); background: var(--bg); }
-    .icon-option.selected { border-color: var(--brand); background: var(--bg); }
+    .icon-option:hover    { border-color: var(--brand-light); background: var(--bg); }
+    .icon-option.selected { border-color: var(--brand); background: #e8f0fb; }
+    .icon-preview {
+      width: 44px; height: 44px; font-size: 26px; display: flex; align-items: center;
+      justify-content: center; border: 2px solid var(--border); border-radius: 10px;
+      background: var(--bg); flex-shrink: 0;
+    }
 
     /* ── Maintenance ── */
     .device-card.maintenance { border-color: #94a3b8; background: #f8fafc; opacity: .75; }
@@ -732,10 +737,24 @@
     </div>
     <div class="form-group">
       <label>Category *</label>
-      <input type="text" id="device-modal-category" placeholder="e.g. GoPros" list="category-suggestions" autocomplete="off" />
+      <input type="text" id="device-modal-category" placeholder="e.g. GoPros" list="category-suggestions" autocomplete="off"
+        oninput="onCategoryInput()" />
       <datalist id="category-suggestions"></datalist>
       <div style="margin-top:8px;font-size:11px;color:var(--muted)">
         Pick an existing category or type a new one
+      </div>
+    </div>
+    <div class="form-group" id="icon-picker-group">
+      <label>Category Icon</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div class="icon-preview" id="icon-preview">📦</div>
+        <input type="text" id="device-modal-icon" placeholder="Paste any emoji…"
+          style="width:130px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:18px;text-align:center;"
+          oninput="onIconInput()" maxlength="4" />
+        <span style="font-size:11px;color:var(--muted)">Click a suggestion<br>or paste your own</span>
+      </div>
+      <div class="icon-picker" id="icon-suggestions">
+        <!-- populated by JS -->
       </div>
     </div>
     <div class="form-group">
@@ -781,8 +800,8 @@ const CONFIG = {
 };
 // ════════════════════════════════════════════════════════════
 
-// ── Category icon mapping (add new entries here for custom icons) ──
-const CATEGORY_ICONS = {
+// ── Category icon mapping — seeded with defaults, rebuilt from SharePoint on load ──
+let CATEGORY_ICONS = {
   'Starlinks':  '📡',
   'DJI Drones': '🚁',
   'GoPros':     '🎥',
@@ -1485,13 +1504,21 @@ async function loadDevices() {
     );
     ALL_DEVICES = (res.value || []).map(item => ({
       id:              item.fields.Title,
-      name:            item.fields.DeviceName  || '',
-      category:        item.fields.Category    || '',
-      sortOrder:       item.fields.SortOrder   || 0,
-      status:          item.fields.Status      || 'active',
-      serialCode:      item.fields.SerialCode  || '',
+      name:            item.fields.DeviceName    || '',
+      category:        item.fields.Category      || '',
+      sortOrder:       item.fields.SortOrder     || 0,
+      status:          item.fields.Status        || 'active',
+      serialCode:      item.fields.SerialCode    || '',
+      categoryIcon:    item.fields.CategoryIcon  || '',
       inventoryItemId: item.id
     })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+    // Rebuild CATEGORY_ICONS: keep hardcoded defaults, overlay anything stored in SharePoint
+    for (const d of ALL_DEVICES) {
+      if (d.categoryIcon && !CATEGORY_ICONS[d.category]) {
+        CATEGORY_ICONS[d.category] = d.categoryIcon;
+      }
+    }
   } catch (e) {
     console.warn('DeviceInventory list not found or failed to load:', e.message);
     ALL_DEVICES = [];
@@ -1559,10 +1586,12 @@ function openAddDevice() {
   document.getElementById('device-modal-name').value        = '';
   document.getElementById('device-modal-category').value    = '';
   document.getElementById('device-modal-serial').value      = '';
+  setModalIcon('📦');
   // Populate category suggestions from existing devices
   const cats = [...new Set(ALL_DEVICES.map(d => d.category))];
   document.getElementById('category-suggestions').innerHTML =
     cats.map(c => `<option value="${escHtml(c)}">`).join('');
+  populateIconSuggestions();
   openModal('device-modal');
   setTimeout(() => document.getElementById('device-modal-name').focus(), 60);
 }
@@ -1576,17 +1605,20 @@ function openEditDevice(inventoryItemId) {
   document.getElementById('device-modal-name').value        = d.name;
   document.getElementById('device-modal-category').value    = d.category;
   document.getElementById('device-modal-serial').value      = d.serialCode || '';
+  setModalIcon(CATEGORY_ICONS[d.category] || '📦');
   const cats = [...new Set(ALL_DEVICES.map(x => x.category))];
   document.getElementById('category-suggestions').innerHTML =
     cats.map(c => `<option value="${escHtml(c)}">`).join('');
+  populateIconSuggestions();
   openModal('device-modal');
   setTimeout(() => document.getElementById('device-modal-name').focus(), 60);
 }
 
 async function confirmSaveDevice() {
-  const name       = document.getElementById('device-modal-name').value.trim();
-  const category   = document.getElementById('device-modal-category').value.trim();
-  const serialCode = document.getElementById('device-modal-serial').value.trim();
+  const name         = document.getElementById('device-modal-name').value.trim();
+  const category     = document.getElementById('device-modal-category').value.trim();
+  const serialCode   = document.getElementById('device-modal-serial').value.trim();
+  const categoryIcon = document.getElementById('device-modal-icon').value.trim() || CATEGORY_ICONS[category] || '📦';
   if (!name)     { shakeInput('device-modal-name');     return; }
   if (!category) { shakeInput('device-modal-category'); return; }
 
@@ -1596,8 +1628,9 @@ async function confirmSaveDevice() {
       // Edit existing device
       await graph(
         `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items/${editingDeviceItemId}`,
-        { method: 'PATCH', body: JSON.stringify({ fields: { DeviceName: name, Category: category, SerialCode: serialCode } }) }
+        { method: 'PATCH', body: JSON.stringify({ fields: { DeviceName: name, Category: category, SerialCode: serialCode, CategoryIcon: categoryIcon } }) }
       );
+      CATEGORY_ICONS[category] = categoryIcon; // update in-memory immediately
       toast(`${name} updated`, 'success');
     } else {
       // Add new device — generate a unique slug ID
@@ -1606,14 +1639,16 @@ async function confirmSaveDevice() {
       await graph(
         `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items`,
         { method: 'POST', body: JSON.stringify({ fields: {
-            Title:      id,
-            DeviceName: name,
-            Category:   category,
-            SortOrder:  ALL_DEVICES.length,
-            SerialCode: serialCode
+            Title:        id,
+            DeviceName:   name,
+            Category:     category,
+            SortOrder:    ALL_DEVICES.length,
+            SerialCode:   serialCode,
+            CategoryIcon: categoryIcon
           }})
         }
       );
+      CATEGORY_ICONS[category] = categoryIcon; // update in-memory immediately
       toast(`${name} added to inventory`, 'success');
     }
     closeModal('device-modal');
@@ -2250,6 +2285,52 @@ function setBtnLoading(id, loading, originalLabel) {
   } else {
     btn.textContent = originalLabel || btn._origLabel ||
       (id.includes('checkout') ? '✓ Confirm Checkout' : '✓ Confirm Check In');
+  }
+}
+
+// ── Icon Picker ───────────────────────────────────────────────
+const ICON_SUGGESTIONS = [
+  '📡','🚁','🎥','💻','📱','🖥️','📷','🎬','🔦','🔧',
+  '⚡','📻','🌐','🎮','🛸','✈️','🏗️','🛠️','🔭','🎙️',
+  '📦','🔌','🖨️','🔋','📟','🖱️','⌨️','📺','🎛️','🔩',
+  '🚜','🚗','🚛','🛻','🏕️','⛺','🎣','🏄','🚀','🌊'
+];
+
+function populateIconSuggestions() {
+  const current = document.getElementById('device-modal-icon').value.trim() || '📦';
+  document.getElementById('icon-suggestions').innerHTML = ICON_SUGGESTIONS.map(e =>
+    `<div class="icon-option${e === current ? ' selected' : ''}" onclick="pickIcon('${e}')" title="${e}">${e}</div>`
+  ).join('');
+}
+
+function pickIcon(emoji) {
+  setModalIcon(emoji);
+  document.querySelectorAll('.icon-option').forEach(el =>
+    el.classList.toggle('selected', el.textContent === emoji)
+  );
+}
+
+function setModalIcon(emoji) {
+  document.getElementById('device-modal-icon').value = emoji;
+  document.getElementById('icon-preview').textContent = emoji || '📦';
+}
+
+function onIconInput() {
+  const val = document.getElementById('device-modal-icon').value.trim();
+  document.getElementById('icon-preview').textContent = val || '📦';
+  document.querySelectorAll('.icon-option').forEach(el =>
+    el.classList.toggle('selected', el.textContent === val)
+  );
+}
+
+function onCategoryInput() {
+  const cat = document.getElementById('device-modal-category').value.trim();
+  // Auto-fill icon if category already has one
+  if (CATEGORY_ICONS[cat]) {
+    setModalIcon(CATEGORY_ICONS[cat]);
+    document.querySelectorAll('.icon-option').forEach(el =>
+      el.classList.toggle('selected', el.textContent === CATEGORY_ICONS[cat])
+    );
   }
 }
 
