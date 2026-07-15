@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a3a5c">
+  <title>Device Availability · Meridian Tools</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a020'/%3E%3Ctext x='32' y='46' font-family='Segoe UI,Arial,sans-serif' font-size='38' font-weight='900' text-anchor='middle' fill='%231a3a5c'%3EM%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root{
+      --brand:#1a3a5c; --brand-light:#2a5a8c; --brand-dark:#132c47;
+      --accent:#e8a020; --accent-dark:#c8871a;
+      --bg:#f0f4f8; --surface:#ffffff; --border:#d0dae6; --border-strong:#b6c5d6;
+      --text:#1e2b3a; --muted:#5a6c83;
+      --green:#22c55e; --green-dark:#15803d; --green-bg:#dcfce7; --green-text:#166534;
+      --red:#ef4444; --red-dark:#dc2626; --red-bg:#fee2e2; --red-text:#991b1b;
+      --amber:#f59e0b; --amber-bg:#fef3c7; --amber-text:#92400e;
+      --shadow:0 2px 12px rgba(26,58,92,.10);
+      --radius:12px; --radius-sm:8px; --radius-lg:16px;
+      --focus-ring:0 0 0 3px rgba(42,90,140,.25);
+      --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+    :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+
+    /* Sign-in / Loading screens */
+    .screen {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; padding: 24px; text-align: center;
+      background: var(--brand); color: #fff;
+    }
+    .screen-logo {
+      width: 56px; height: 56px; background: var(--accent); border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 900; color: var(--brand);
+    }
+    .screen h2 { font-size: 20px; font-weight: 800; }
+    .screen p  { font-size: 13px; opacity: .75; max-width: 340px; }
+    .spinner {
+      width: 36px; height: 36px; border: 4px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ms-btn {
+      display: flex; align-items: center; gap: 10px;
+      background: #fff; color: var(--brand); border: none; min-height: 44px;
+      padding: 12px 24px; border-radius: var(--radius-sm); font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 8px; font-family: var(--font);
+      transition: background .15s, transform .05s;
+    }
+    .ms-btn:hover { background: var(--bg); }
+    .ms-btn:active { transform: translateY(1px); }
+    .ms-btn:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+    .screen-err { font-size: 13px; color: #ffd9d9; max-width: 360px; }
+
+    /* Header — spec standard */
+    header {
+      background: var(--brand); color: #fff;
+      padding: 0 clamp(14px, 4vw, 32px); height: 64px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo-icon {
+      width: 38px; height: 38px; background: var(--accent); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 900; color: var(--brand); flex-shrink: 0;
+    }
+    .logo h1 { font-size: 17px; font-weight: 700; line-height: 1.2; }
+    .logo p  { font-size: 11px; color: rgba(255,255,255,.72); }
+    .header-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .refresh-info { font-size: 11px; color: rgba(255,255,255,.72); text-align: right; }
+    .stale-pill {
+      display: none; font-size: 11px; font-weight: 700; padding: 4px 10px;
+      border-radius: 999px; background: var(--amber-bg); color: var(--amber-text);
+    }
+    .stale-pill.on { display: inline-block; }
+    .home-link {
+      display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 14px;
+      border: 1px solid rgba(255,255,255,.35); border-radius: var(--radius-sm);
+      color: #fff; text-decoration: none; font-size: 12px; font-weight: 600;
+      transition: background .15s, border-color .15s;
+    }
+    .home-link:hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.6); }
+    .home-link:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+
+    /* Apps dropdown — spec §3 (identical across suite) */
+    .apps-menu-wrap { position: relative; }
+    .apps-btn { background: rgba(255,255,255,.12); border: none; border-radius: var(--radius-sm); color: #fff; padding: 6px 12px; min-height: 44px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s; display: flex; align-items: center; gap: 6px; }
+    .apps-btn:hover { background: rgba(255,255,255,.22); }
+    .apps-btn:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+    .apps-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border-radius: var(--radius); box-shadow: 0 8px 32px rgba(0,0,0,.18); border: 1px solid var(--border); min-width: 240px; padding: 8px; z-index: 300; }
+    .app-entry { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer; text-decoration: none; color: var(--text); transition: background .12s; }
+    .app-entry:hover { background: var(--bg); }
+    .app-entry:focus-visible { background: var(--bg); box-shadow: var(--focus-ring); outline: none; }
+    .app-entry-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; color: var(--brand); flex-shrink: 0; }
+    .app-entry-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .app-entry-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .app-entry-sub.current { color: var(--accent); font-weight: 700; }
+
+    /* Main */
+    main { flex: 1; width: 100%; padding: 20px clamp(16px, 4vw, 24px) 32px; max-width: 900px; margin: 0 auto; }
+
+    /* Summary */
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+    .stat { background: var(--surface); border-radius: var(--radius); padding: 14px 12px; box-shadow: var(--shadow); text-align: center; }
+    .stat .val { font-size: 28px; font-weight: 900; color: var(--brand); }
+    .stat .lbl { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .stat.avail .val { color: var(--green-dark); }
+
+    /* Category sections */
+    .cat-section { margin-bottom: 24px; }
+    .cat-header {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+      color: var(--muted); padding: 0 4px; margin-bottom: 8px;
+    }
+    .device-list { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .device-row {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 13px 18px; border-bottom: 1px solid var(--border);
+    }
+    .device-row:last-child { border-bottom: none; }
+    .device-row.is-out { background: var(--bg); }
+    .device-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .device-row.is-out .device-dot { background: var(--border-strong); }
+    .device-name { font-weight: 700; font-size: 14px; flex: 1; min-width: 120px; }
+    .device-row.is-out .device-name { color: var(--muted); font-weight: 600; }
+    .device-tag { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+    .tag-avail { background: var(--green-bg); color: var(--green-text); }
+    .tag-soon  { background: var(--amber-bg); color: var(--amber-text); }
+    .tag-out   { background: var(--red-bg); color: var(--red-text); }
+    .device-sub { font-size: 11px; color: var(--muted); }
+    .cat-empty { padding: 14px 18px; font-size: 13px; color: var(--muted); }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty .t { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+
+    footer {
+      text-align: center; padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+      font-size: 12px; color: var(--muted); border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 640px) {
+      .logo p { display: none; }
+      .refresh-info { display: none; }
+      .summary .stat .val { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sign-in screen (hidden until we know there is no account) -->
+<div class="screen" id="signin-screen" style="display:none;">
+  <div class="screen-logo" aria-hidden="true">M</div>
+  <h2>Meridian Management</h2>
+  <p>Device Availability — sign in to see what's free right now.</p>
+  <button class="ms-btn" onclick="signIn()">
+    <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+    Sign in with Microsoft
+  </button>
+  <p class="screen-err" id="signin-err" style="display:none;"></p>
+</div>
+
+<!-- Loading screen -->
+<div class="screen" id="loading-screen">
+  <div class="screen-logo" aria-hidden="true">M</div>
+  <div class="spinner" role="status" aria-label="Loading"></div>
+  <p id="loading-msg">Loading…</p>
+  <button class="ms-btn" id="retry-btn" style="display:none;" onclick="location.reload()">↻ Retry</button>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon" aria-hidden="true">M</div>
+    <div>
+      <h1>Meridian Management</h1>
+      <p>Device Availability</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="stale-pill" id="stale-pill">Offline — data may be stale</span>
+    <span class="refresh-info" id="last-updated" aria-live="polite">Loading…</span>
+    <div class="apps-menu-wrap" id="apps-menu-wrap">
+      <button class="apps-btn" id="apps-btn" onclick="toggleAppsMenu(event)" title="Switch app" aria-haspopup="true" aria-expanded="false">⊞ Apps</button>
+      <div class="apps-dropdown" id="apps-dropdown" role="menu" style="display:none">
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/timesheet.html">
+          <div class="app-entry-icon" aria-hidden="true">M</div>
+          <div><div class="app-entry-name">Timesheet</div><div class="app-entry-sub">Log weekly hours</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/expense-tracker.html">
+          <div class="app-entry-icon" aria-hidden="true">M</div>
+          <div><div class="app-entry-name">Expense Tracker</div><div class="app-entry-sub">Mileage, per diem &amp; reimbursements</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/receipt-tracker.html">
+          <div class="app-entry-icon" aria-hidden="true">M</div>
+          <div><div class="app-entry-name">Credit Card Tracker</div><div class="app-entry-sub">Log credit card receipts</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/device-checkout.html">
+          <div class="app-entry-icon" aria-hidden="true">M</div>
+          <div><div class="app-entry-name">Device Checkout</div><div class="app-entry-sub">Equipment &amp; vehicle loans</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/available.html">
+          <div class="app-entry-icon" aria-hidden="true">M</div>
+          <div><div class="app-entry-name">Device Availability</div><div class="app-entry-sub current">Current app</div></div>
+        </a>
+        <div style="border-top:1px solid var(--border);margin:4px 0"></div>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/">
+          <div class="app-entry-icon" style="background:var(--bg);color:var(--muted)" aria-hidden="true">⌂</div>
+          <div><div class="app-entry-name">Home</div><div class="app-entry-sub">All Meridian tools</div></div>
+        </a>
+      </div>
+    </div>
+    <a class="home-link" href="/"><span aria-hidden="true">⌂</span> All Tools</a>
+  </div>
+</header>
+
+<!-- Main -->
+<main id="main-content" style="display:none;">
+  <div class="summary" aria-live="polite">
+    <div class="stat avail"><div class="val" id="count-avail">—</div><div class="lbl">Available Now</div></div>
+    <div class="stat"><div class="val" id="count-out">—</div><div class="lbl">Checked Out</div></div>
+    <div class="stat"><div class="val" id="count-total">—</div><div class="lbl">Total Devices</div></div>
+  </div>
+  <div id="device-sections"></div>
+</main>
+
+<footer>Meridian Management · Internal Tools</footer>
+
+<script>
+const CONFIG = {
+  clientId:                "ff1fd3ee-7baf-4d72-b978-742a29de8eab",
+  tenantId:                "4fa4840a-2a70-49e0-93ab-fd8b099bbeed",
+  siteHostname:            "meridianak.sharepoint.com",
+  checkoutsListName:       "DeviceCheckouts",
+  deviceInventoryListName: "DeviceInventory",
+  reservationsListName:    "DeviceReservations",
+  pollInterval:            30000
+};
+
+const CATEGORY_ICONS = {
+  'Starlinks':  '📡',
+  'DJI Drones': '🚁',
+  'GoPros':     '🎥',
+};
+
+let msalInstance = null;
+let siteId       = null;
+let allDevices   = [];
+let checkouts    = {};
+let reservations = [];
+let pollTimer    = null;
+let loadInFlight = false;
+let hasLoadedOnce = false;
+
+const msalConfig = {
+  auth: {
+    clientId:    CONFIG.clientId,
+    authority:   `https://login.microsoftonline.com/${CONFIG.tenantId}`,
+    redirectUri: window.location.origin + '/auth-return.html',
+    navigateToLoginRequestUrl: true
+  },
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+};
+const graphScopes = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
+
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function initMsal() {
+  if (typeof msal === 'undefined') {
+    showSignIn('Could not load the Microsoft sign-in library. Check your connection and refresh.');
+    return;
+  }
+  try {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+    await msalInstance.initialize();
+    showLoading('Checking authentication…');
+    const response = await msalInstance.handleRedirectPromise();
+    if (response) {
+      msalInstance.setActiveAccount(response.account);
+      await startApp();
+    } else {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) { msalInstance.setActiveAccount(accounts[0]); await startApp(); }
+      else showSignIn();
+    }
+  } catch (e) { console.error(e); showSignIn(); }
+}
+
+function signIn() {
+  if (!msalInstance) {
+    showSignIn('Sign-in is unavailable right now. Please refresh the page and try again.');
+    return;
+  }
+  msalInstance.loginRedirect({ scopes: graphScopes });
+}
+
+async function getToken() {
+  const account = msalInstance.getActiveAccount();
+  if (!account) { showSignIn(); throw new Error('Not signed in'); }
+  try {
+    const r = await msalInstance.acquireTokenSilent({ scopes: graphScopes, account });
+    return r.accessToken;
+  } catch (e) {
+    await msalInstance.acquireTokenRedirect({ scopes: graphScopes });
+    throw new Error('Redirecting to sign-in…');
+  }
+}
+
+async function graph(path, opts = {}, _retried = false) {
+  const token = await getToken();
+  const res = await fetch('https://graph.microsoft.com/v1.0' + path, {
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  if ((res.status === 429 || res.status === 503) && !_retried) {
+    const wait = Math.min((parseInt(res.headers.get('Retry-After')) || 2) * 1000, 10000);
+    await new Promise(r => setTimeout(r, wait));
+    return graph(path, opts, true);
+  }
+  const text = await res.text();
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch (e) {} }
+  if (!res.ok) throw new Error(data?.error?.message || res.statusText || ('HTTP ' + res.status));
+  return data;
+}
+
+async function graphGetAll(path) {
+  let url = path, out = [];
+  while (url) {
+    const page = await graph(url, { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } });
+    out = out.concat(page?.value || []);
+    url = page?.['@odata.nextLink']
+      ? page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '') : null;
+  }
+  return out;
+}
+
+async function startApp() {
+  showLoading('Connecting…');
+  try {
+    const site = await graph(`/sites/${CONFIG.siteHostname}`);
+    siteId = site.id;
+    await loadData(true);
+    document.getElementById('signin-screen').style.display  = 'none';
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('main-content').style.display   = 'block';
+    startPolling();
+  } catch (e) {
+    showLoading('⚠ ' + e.message);
+    document.getElementById('retry-btn').style.display = '';
+  }
+}
+
+function startPolling() {
+  pollTimer = setInterval(() => { if (!document.hidden) loadData(); }, CONFIG.pollInterval);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadData(); });
+}
+
+async function loadData(rethrow = false) {
+  if (loadInFlight) return;
+  loadInFlight = true;
+  try {
+    const devItems = await graphGetAll(
+      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items?$expand=fields&$top=500`
+    );
+    allDevices = devItems.map(item => ({
+      id:        item.fields.Title,
+      name:      item.fields.DeviceName || '',
+      category:  item.fields.Category   || '',
+      status:    item.fields.Status     || 'active',
+      sortOrder: item.fields.SortOrder  || 0
+    })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+    const coItems = await graphGetAll(
+      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.checkoutsListName)}/items?$expand=fields&$top=500`
+    );
+    checkouts = {};
+    for (const item of coItems) {
+      const f = item.fields;
+      if (!f.Title) continue;
+      checkouts[f.Title] = { employee: f.Employee || '', expectedReturn: f.ExpectedReturn || '' };
+    }
+
+    try {
+      const resItems = await graphGetAll(
+        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.reservationsListName)}/items?$expand=fields&$top=500`
+      );
+      const today = todayISO();
+      reservations = resItems.map(item => {
+        const f = item.fields;
+        // Reservations store the device NAME — join back to the inventory id.
+        const dev = allDevices.find(d => d.name === (f.DeviceName || ''));
+        return {
+          deviceId:  dev ? dev.id : (f.DeviceId || f.DeviceName || ''),
+          employee:  f.Employee || '',
+          startDate: dateOnly(f.StartDate), endDate: dateOnly(f.EndDate),
+          status:    f.Status || 'active'
+        };
+      }).filter(r => r.status === 'active' && r.endDate >= today);
+    } catch (e) { reservations = []; }
+
+    render();
+    hasLoadedOnce = true;
+    document.getElementById('stale-pill').classList.remove('on');
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } catch (e) {
+    console.error('Load error:', e);
+    if (hasLoadedOnce) document.getElementById('stale-pill').classList.add('on');
+    if (rethrow) throw e;
+  } finally {
+    loadInFlight = false;
+  }
+}
+
+// LOCAL date — Alaska is UTC-9; toISOString() would say "tomorrow" every evening.
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function dateOnly(v) { return String(v || '').split('T')[0]; }
+
+function formatDate(iso) {
+  if (!iso) return '';
+  if (iso === 'Permanent') return 'Permanent';
+  const clean = dateOnly(iso);
+  const d = new Date(clean + 'T12:00:00');
+  if (isNaN(d)) return clean;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function render() {
+  const today = todayISO();
+
+  const isAvailable = d => {
+    if (d.status === 'maintenance') return false;
+    if (checkouts[d.id]) return false;
+    return !reservations.find(r => r.deviceId === d.id && r.startDate <= today && r.endDate >= today);
+  };
+
+  const availCount = allDevices.filter(isAvailable).length;
+  document.getElementById('count-avail').textContent = availCount;
+  document.getElementById('count-out').textContent   = allDevices.length - availCount;
+  document.getElementById('count-total').textContent = allDevices.length;
+
+  const el = document.getElementById('device-sections');
+
+  if (allDevices.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="icon" aria-hidden="true">📦</div><div class="t">No devices found</div><p>Devices added in the Device Checkout app will appear here.</p></div>`;
+    return;
+  }
+
+  // Group ALL devices by category so nothing silently disappears.
+  const catMap = {};
+  for (const d of allDevices) {
+    const c = d.category || 'Other';
+    (catMap[c] = catMap[c] || []).push(d);
+  }
+
+  el.innerHTML = Object.entries(catMap).map(([catName, devices]) => {
+    const icon = CATEGORY_ICONS[catName] || '📦';
+    const availInCat = devices.filter(isAvailable).length;
+    const rows = devices
+      .slice()
+      .sort((a, b) => (isAvailable(b) ? 1 : 0) - (isAvailable(a) ? 1 : 0))
+      .map(d => {
+        if (isAvailable(d)) {
+          const upcoming = reservations
+            .filter(r => r.deviceId === d.id && r.startDate > today)
+            .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+          return `
+            <div class="device-row">
+              <div class="device-dot" aria-hidden="true"></div>
+              <span class="device-name">${escHtml(d.name)}</span>
+              ${upcoming
+                ? `<span class="device-tag tag-soon">Reserved ${escHtml(formatDate(upcoming.startDate))}</span>`
+                : `<span class="device-tag tag-avail">Available</span>`}
+            </div>`;
+        }
+        const co = checkouts[d.id];
+        const label = d.status === 'maintenance'
+          ? 'In maintenance'
+          : co
+            ? (co.expectedReturn === 'Permanent' ? 'Out — permanent' : ('Due ' + formatDate(co.expectedReturn)))
+            : 'Reserved today';
+        return `
+          <div class="device-row is-out">
+            <div class="device-dot" aria-hidden="true"></div>
+            <span class="device-name">${escHtml(d.name)}</span>
+            <span class="device-tag tag-out">${escHtml(label)}</span>
+          </div>`;
+      }).join('');
+
+    return `
+      <div class="cat-section">
+        <div class="cat-header">
+          <span><span aria-hidden="true">${icon}</span> ${escHtml(catName)}</span>
+          <span>${availInCat} of ${devices.length} available</span>
+        </div>
+        <div class="device-list">
+          ${availInCat === 0 ? `<div class="cat-empty">All ${escHtml(catName)} are out right now.</div>` : ''}
+          ${rows}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function showSignIn(errMsg) {
+  document.getElementById('signin-screen').style.display  = 'flex';
+  document.getElementById('loading-screen').style.display = 'none';
+  const err = document.getElementById('signin-err');
+  if (errMsg) { err.textContent = errMsg; err.style.display = ''; }
+}
+function showLoading(m) {
+  document.getElementById('signin-screen').style.display  = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
+  document.getElementById('loading-msg').textContent = m;
+}
+
+// Apps dropdown — open/close with full a11y (spec §3)
+function setAppsMenu(open) {
+  const dd = document.getElementById('apps-dropdown');
+  const btn = document.getElementById('apps-btn');
+  if (!dd || !btn) return;
+  dd.style.display = open ? 'block' : 'none';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) { const first = dd.querySelector('.app-entry'); if (first) first.focus(); }
+}
+function toggleAppsMenu(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('apps-dropdown');
+  setAppsMenu(dd.style.display === 'none');
+}
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('apps-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) setAppsMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const dd = document.getElementById('apps-dropdown');
+    if (dd && dd.style.display !== 'none') { setAppsMenu(false); document.getElementById('apps-btn').focus(); }
+  }
+});
+
+initMsal();
+</script>
+</body>
+</html>

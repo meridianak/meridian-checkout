@@ -1,0 +1,2473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a3a5c" />
+  <title>Expense Tracker · Meridian Tools</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a020'/%3E%3Ctext x='32' y='46' font-family='Segoe UI,Arial,sans-serif' font-size='38' font-weight='900' text-anchor='middle' fill='%231a3a5c'%3EM%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root{
+      --brand:#1a3a5c; --brand-light:#2a5a8c; --brand-dark:#132c47;
+      --accent:#e8a020; --accent-dark:#c8871a;
+      --bg:#f0f4f8; --surface:#ffffff; --border:#d0dae6; --border-strong:#b6c5d6;
+      --text:#1e2b3a; --muted:#5a6c83;
+      --green:#22c55e; --green-dark:#15803d; --green-bg:#dcfce7; --green-text:#166534;
+      --red:#ef4444; --red-dark:#dc2626; --red-bg:#fee2e2; --red-text:#991b1b;
+      --amber:#f59e0b; --amber-bg:#fef3c7; --amber-text:#92400e;
+      --blue:#3b82f6; --blue-dark:#1d4ed8; --blue-bg:#dbeafe;
+      --purple:#8b5cf6; --purple-dark:#6d28d9; --purple-bg:#ede9fe;
+      --shadow:0 2px 12px rgba(26,58,92,.10);
+      --shadow-lg:0 20px 60px rgba(15,30,50,.28);
+      --radius:12px;      /* cards, tables, dropdowns */
+      --radius-sm:8px;    /* buttons, inputs */
+      --radius-lg:16px;   /* modals, hero banners */
+      --focus-ring:0 0 0 3px rgba(42,90,140,.25);
+      --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ── Screens ── */
+    .screen { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center; }
+    #signin-screen  { background: var(--brand); color: #fff; }
+    #loading-screen { background: var(--brand); color: #fff; }
+    .screen-logo { width: 64px; height: 64px; background: var(--accent); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 900; color: var(--brand); margin-bottom: 4px; }
+    .screen h2 { font-size: 22px; font-weight: 800; }
+    .screen p  { font-size: 14px; opacity: .7; max-width: 320px; line-height: 1.5; }
+    .screen .sub { font-size: 12px; opacity: .5; }
+    .ms-btn { display: flex; align-items: center; gap: 12px; background: #fff; color: #1a1a1a; border: none; border-radius: 4px; padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2); transition: box-shadow .15s; margin-top: 8px; }
+    .ms-btn:hover { box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+    .spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.25); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-msg { font-size: 13px; opacity: .6; }
+
+    /* ── Header ── */
+    header { background: var(--brand); color: #fff; padding: 0 clamp(14px,4vw,32px); height: 64px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,.25); position: sticky; top: 0; z-index: 100; }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 38px; height: 38px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; color: var(--brand); }
+    .logo h1 { font-size: 17px; font-weight: 700; }
+    .logo p  { font-size: 11px; color: rgba(255,255,255,.72); }
+    #user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-chip { background: rgba(255,255,255,.12); border-radius: 20px; padding: 5px 12px 5px 8px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; color: #fff; transition: background .15s; }
+    .user-chip:hover { background: rgba(255,255,255,.22); }
+    .user-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--brand); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+
+
+
+    /* ── Nav ── */
+    nav { background: var(--brand-light); display: flex; gap: 2px; padding: 0 clamp(14px,4vw,32px); position: sticky; top: 64px; z-index: 90; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    nav::-webkit-scrollbar { display: none; }
+    nav button { background: transparent; border: none; color: rgba(255,255,255,.85); min-height: 44px; padding: 11px 18px; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; border-bottom: 3px solid transparent; transition: background .15s, color .15s, border-color .15s; }
+    nav button:hover { background: rgba(255,255,255,.10); color: #fff; }
+    nav button.active { color: #fff; border-bottom-color: var(--accent); }
+
+    /* ── Main ── */
+    main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+    .stat-card { background: var(--surface); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; }
+    .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+    .stat-card .value { font-size: 28px; font-weight: 800; line-height: 1; }
+    .stat-card .sub   { font-size: 12px; color: var(--muted); }
+
+    /* ── Portal / Hero ── */
+    .hero { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%); border-radius: 16px; padding: 36px 40px; color: #fff; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .hero-left h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .hero-left p  { font-size: 14px; opacity: .75; }
+    .btn-log-expense { background: var(--accent); color: var(--brand); border: none; border-radius: 10px; padding: 13px 30px; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 16px rgba(232,160,32,.4); transition: all .15s; white-space: nowrap; flex-shrink: 0; }
+    .btn-log-expense:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(232,160,32,.5); }
+    .my-recent { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 24px; }
+    .my-recent h3 { font-size: 14px; font-weight: 800; color: var(--brand); margin-bottom: 14px; }
+    .recent-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .recent-row:last-child { border-bottom: none; }
+    .recent-type-pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; }
+    .type-mileage { background: var(--blue-bg);  color: var(--blue-dark); }
+    .type-perdiem { background: var(--amber-bg); color: var(--amber-text); }
+    .type-oop     { background: var(--green-bg); color: var(--green-text); }
+    .recent-info   { flex: 1; min-width: 0; }
+    .recent-desc   { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .recent-meta   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .recent-amount { font-size: 14px; font-weight: 800; color: var(--brand); flex-shrink: 0; }
+
+    /* ── Billable toggle buttons ── */
+    .billable-toggle { display: flex; gap: 8px; }
+    .toggle-btn { flex: 1; padding: 9px 6px; border: 2px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s; background: var(--surface); color: var(--muted); text-align: center; }
+    .toggle-btn.active.yes    { border-color: var(--green);  background: var(--green-bg);  color: var(--green-dark); }
+    .toggle-btn.active.no     { border-color: var(--amber);  background: var(--amber-bg);  color: var(--amber-text); }
+    .toggle-btn.active.unsure { border-color: var(--blue);   background: var(--blue-bg);   color: var(--blue-dark); }
+
+    /* ── Nav badge ── */
+    .nav-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--red); color: #fff; font-size: 10px; font-weight: 800;
+      border-radius: 10px; padding: 1px 6px; margin-left: 5px;
+      min-width: 18px; line-height: 16px;
+    }
+
+    /* ── Pending banner ── */
+    .pending-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      border-radius: var(--radius); padding: 13px 18px; margin-bottom: 14px; gap: 12px;
+      background: var(--red-bg); border: 1px solid #fecaca;
+    }
+    .pending-banner.none { background: var(--green-bg); border-color: #bbf7d0; }
+    .pending-banner-left { display: flex; align-items: center; gap: 12px; }
+    .pending-count {
+      background: var(--red); color: #fff; font-size: 14px; font-weight: 800;
+      border-radius: 50%; width: 32px; height: 32px; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .pending-count.zero { background: var(--green); font-size: 16px; }
+    .pending-banner-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--red); }
+    .pending-banner.none .pending-banner-label { color: var(--green); }
+    .pending-banner-msg { font-size: 15px; font-weight: 700; color: var(--text); }
+    .pending-banner-amt { font-size: 15px; font-weight: 800; color: var(--red); }
+    .pending-banner.none .pending-banner-amt { color: var(--green); }
+    .pending-banner-link {
+      font-size: 12px; font-weight: 700; color: var(--red);
+      background: none; border: 1px solid #fecaca; border-radius: 6px;
+      cursor: pointer; white-space: nowrap; padding: 5px 12px;
+      transition: all .15s;
+    }
+    .pending-banner-link:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 14px 18px; margin-bottom: 12px;
+    }
+    .filters-summary { display: none; list-style: none; font-size: 13px; font-weight: 700; color: var(--brand); padding: 4px 0; }
+    .filters-summary::-webkit-details-marker { display: none; }
+    .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .filter-row:last-child { margin-bottom: 0; }
+    .filter-bar input, .filter-bar select {
+      padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px;
+      font-size: 13px; color: var(--text); background: var(--surface); outline: none; height: 34px;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { border-color: var(--brand-light); }
+    .filter-bar input[type="text"]  { min-width: 220px; flex: 1; }
+    .filter-bar input[type="date"]  { width: 148px; }
+    .filter-bar input[type="month"] { width: 148px; }
+    .filter-sep { color: var(--border); font-size: 20px; user-select: none; margin: 0 2px; }
+    .filter-group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); white-space: nowrap; }
+    .active-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--brand); color: #fff;
+      border-radius: 20px; padding: 3px 10px 3px 12px; font-size: 12px; font-weight: 600;
+    }
+    .filter-chip button { background: none; border: none; color: rgba(255,255,255,.8); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 2px; }
+    .filter-chip button:hover { color: #fff; }
+
+    /* Log actions bar */
+    .log-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .log-meta { font-size: 13px; color: var(--muted); }
+    .btn-export {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .btn-export:hover { background: var(--accent-dark); }
+
+    /* ── Table ── */
+    .log-table-wrap { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 13px; }
+    thead th {
+      background: var(--brand); color: #fff; padding: 10px 14px;
+      text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    thead th:hover { background: var(--brand-light); }
+    thead th.sorted-asc::after  { content: ' ↑'; opacity: 1; }
+    thead th.sorted-desc::after { content: ' ↓'; opacity: 1; }
+    thead th::after { content: ' ↕'; opacity: .3; font-size: 10px; }
+    thead th.no-sort { cursor: default; }
+    thead th.no-sort::after { content: ''; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--bg); }
+    tbody td { padding: 9px 14px; vertical-align: middle; }
+    /* Sticky first column keeps context while scrolling on phones (§7) */
+    .log-table-wrap thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--brand); }
+    .log-table-wrap tbody td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+    .log-table-wrap tbody tr:hover td:first-child { background: var(--bg); }
+    .empty-state { padding: 48px; text-align: center; color: var(--muted); font-size: 14px; }
+
+    /* Billable label */
+    .billable-label { font-size: 11px; font-weight: 800; letter-spacing: .4px; }
+    .billable-label.billable    { color: var(--green-dark); }
+    .billable-label.notbillable { color: var(--accent); }
+    .billable-label.unsure      { color: var(--muted); }
+
+    .pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 12px; white-space: nowrap; display: inline-block; }
+    .pill-billable    { background: var(--blue-bg);  color: var(--blue-dark); }
+    .pill-notbillable { background: var(--bg); color: var(--muted); }
+    .pill-unsure      { background: var(--amber-bg); color: var(--amber-text); }
+
+    /* Status toggle buttons (Billed / Processed) */
+    .status-toggle {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: all .15s; white-space: nowrap; border: 1.5px solid;
+      user-select: none;
+    }
+    .status-toggle.billed-off    { background: var(--bg);       color: var(--muted);  border-color: var(--border); }
+    .status-toggle.billed-off:hover { background: var(--green-bg); color: var(--green-dark); border-color: #86efac; }
+    .status-toggle.billed-on     { background: var(--green-bg); color: var(--green-dark); border-color: #86efac; }
+    .status-toggle.billed-on:hover  { background: #bbf7d0; }
+    .status-toggle.processed-off { background: var(--bg);       color: var(--muted);  border-color: var(--border); }
+    .status-toggle.processed-off:hover { background: var(--blue-bg); color: var(--blue-dark); border-color: #93c5fd; }
+    .status-toggle.processed-on  { background: var(--blue-bg);  color: var(--blue-dark);   border-color: #93c5fd; }
+    .status-toggle.processed-on:hover  { background: #bfdbfe; }
+
+    /* Row action buttons */
+    .btn-edit-row {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 7px; padding: 5px 14px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .btn-edit-row.edit  { background: var(--brand); color: #fff; border: none; }
+    .btn-edit-row.edit:hover { background: var(--brand-light); }
+    .btn-edit-row.delete { background: none; color: var(--border-strong); border: none; padding: 5px 8px; }
+    .btn-edit-row.delete:hover { color: var(--red); }
+
+    /* ── Dashboard ── */
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .dash-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 24px; }
+    .dash-card h3 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 16px; }
+    .dash-card.wide { grid-column: 1 / -1; }
+
+    /* Bar chart rows */
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-label { font-size: 13px; font-weight: 600; min-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-wrap  { flex: 1; background: var(--bg); border-radius: 4px; height: 14px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 4px; transition: width .5s ease; }
+    .bar-fill.brand  { background: var(--brand); }
+    .bar-fill.accent { background: var(--accent); }
+    .bar-fill.green  { background: var(--green); }
+    .bar-fill.blue   { background: var(--blue); }
+    .bar-fill.amber  { background: var(--amber); }
+    .bar-fill.purple { background: var(--purple); }
+    .bar-val  { font-size: 12px; font-weight: 700; color: var(--muted); min-width: 70px; text-align: right; }
+
+    /* Donut chart (pure CSS) */
+    .donut-wrap { display: flex; align-items: center; gap: 24px; }
+    .donut { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+    .donut svg { transform: rotate(-90deg); }
+    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .donut-center .dc-val { font-size: 20px; font-weight: 800; color: var(--brand); line-height: 1; }
+    .donut-center .dc-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .legend { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-name { flex: 1; font-weight: 600; }
+    .legend-val  { font-weight: 700; color: var(--muted); }
+
+    /* Monthly trend */
+    .trend-bars { display: flex; align-items: flex-end; gap: 6px; height: 100px; margin-top: 8px; }
+    .trend-col  { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .trend-bar  { width: 100%; border-radius: 4px 4px 0 0; background: var(--brand); min-height: 2px; transition: height .5s ease; }
+    .trend-month { font-size: 10px; color: var(--muted); font-weight: 600; }
+    .trend-amt   { font-size: 9px; color: var(--muted); }
+
+    /* Top stats row */
+    .dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 24px; }
+
+    /* ── Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,30,50,.5); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 32px; width: 480px; max-width: calc(100vw - 40px); max-height: calc(100vh - 60px); overflow-y: auto; box-shadow: var(--shadow-lg); animation: pop .2s ease; }
+    @keyframes pop { from { transform: scale(.92); opacity:0; } to { transform: scale(1); opacity:1; } }
+    .modal h3 { font-size: 18px; font-weight: 800; color: var(--brand); margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 13px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border-color .15s; font-family: inherit; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--brand-light); box-shadow: var(--focus-ring); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .btn-confirm { flex: 1; padding: 11px; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; background: var(--brand); color: #fff; transition: background .15s; }
+    .btn-confirm:hover { background: var(--brand-light); }
+    .btn-confirm:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-confirm.green  { background: var(--green-dark); }
+    .btn-confirm.green:hover { background: var(--green-dark); }
+    .btn-confirm.danger { background: var(--red-dark); }
+    .btn-cancel { flex: 1; padding: 11px; font-size: 14px; font-weight: 700; background: var(--bg); color: var(--muted); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+    .btn-cancel:hover { background: var(--border); color: var(--text); }
+    #mileage-calc-preview { background: var(--blue-bg); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--blue-dark); margin-top: 6px; display: none; }
+
+    /* ── Toast ── */
+    #toast { position: fixed; bottom: 28px; right: 28px; z-index: 600; background: var(--brand-light); color: #fff; padding: 13px 22px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all .3s ease; pointer-events: none; max-width: 380px; }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: var(--green-dark); }
+    #toast.error   { background: var(--red-dark); }
+    #toast.info    { background: var(--brand-light); }
+
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)} }
+    .shake { animation: shake .3s ease; border-color: var(--red) !important; }
+
+    /* ── Per Diem toggles ── */
+    .pd-toggle {
+      flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: all .15s; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--muted);
+    }
+    .pd-toggle.active { background: var(--green-bg); color: var(--green-dark); border-color: #86efac; }
+    .pd-toggle:hover  { border-color: #86efac; background: var(--green-bg); color: var(--green-dark); }
+
+    /* ── Locations tab ── */
+    .loc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .loc-header h2 { font-size: 18px; font-weight: 800; color: var(--brand); }
+    .btn-add-loc {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--brand); color: #fff; border: none; border-radius: 8px;
+      padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .btn-add-loc:hover { background: var(--brand-light); }
+    .loc-table-wrap { border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .loc-table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 13px; }
+    .loc-table thead th { background: var(--brand); color: #fff; padding: 11px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+    .loc-table tbody tr { border-bottom: 1px solid var(--border); }
+    .loc-table tbody tr:last-child { border-bottom: none; }
+    .loc-table tbody tr:hover { background: var(--bg); }
+    .loc-table tbody td { padding: 12px 16px; vertical-align: middle; }
+    .loc-name { font-weight: 700; color: var(--brand); }
+    .loc-rate { font-weight: 700; font-size: 15px; }
+
+    /* ── App Switcher ── */
+    .apps-menu-wrap { position: relative; }
+    .apps-btn {
+      background: rgba(255,255,255,.12); border: none; border-radius: 8px;
+      color: #fff; padding: 6px 12px; font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: background .15s; display: flex; align-items: center; gap: 6px;
+    }
+    .apps-btn:hover { background: rgba(255,255,255,.22); }
+    .apps-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18); border: 1px solid var(--border);
+      min-width: 240px; padding: 8px; z-index: 300;
+    }
+    .app-entry {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      text-decoration: none; color: var(--text); transition: background .12s;
+    }
+    .app-entry:hover { background: var(--bg); }
+    .app-entry-icon {
+      width: 36px; height: 36px; background: var(--accent); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; color: var(--brand); flex-shrink: 0;
+    }
+    .app-entry-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .app-entry-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .app-entry-sub.current { color: var(--accent); font-weight: 700; }
+
+    .exp-upload-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all .15s; background: var(--bg); }
+    .exp-upload-zone:hover { border-color: var(--brand-light); background: var(--blue-bg); }
+    .exp-upload-zone input[type="file"] { display: none; }
+    .exp-upload-preview { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--green-bg); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--green-dark); }
+    .exp-upload-preview .exp-clear-file { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--red); font-size: 14px; font-weight: 700; }
+
+    /* Focus-visible ring + touch targets for all buttons (§5) */
+    button { transition: background .15s, box-shadow .15s, transform .05s; }
+    button:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+    /* Busy spinner for buttons (§5) */
+    .btn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+
+    @media (max-width: 900px) {
+      main { padding: 20px 16px; }
+    }
+
+    @media (max-width: 640px) {
+      main { padding: 16px; }
+      header { padding: 0 14px; }
+      .logo p { display: none; }
+      .form-row { grid-template-columns: 1fr; }
+      /* 16px inputs kill iOS zoom (§6) — applies to EVERY input/select/textarea */
+      input, select, textarea,
+      .form-group input, .form-group select, .form-group textarea,
+      .filter-bar input, .filter-bar select { font-size: 16px !important; }
+      /* 44px touch targets (§5/§12) */
+      nav button, .btn-confirm, .btn-cancel, .btn-add-loc, .btn-export,
+      .btn-log-expense, .ms-btn, .apps-btn, .user-chip, .btn-edit-row,
+      .status-toggle, .toggle-btn, .pd-toggle { min-height: 44px; }
+      /* Toast bottom-center on mobile (§9) */
+      #toast { left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: none; }
+      /* Collapsible filters (§12) */
+      .filters-summary { display: block; cursor: pointer; min-height: 44px; line-height: 36px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIGN-IN -->
+<div class="screen" id="signin-screen">
+  <div class="screen-logo">M</div>
+  <h2>Meridian Management</h2>
+  <p>Expense Tracker</p>
+  <p style="opacity:.55;font-size:13px">Sign in with your Meridian Microsoft account to continue</p>
+  <button class="ms-btn" onclick="signIn()">
+    <svg width="21" height="21" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+    </svg>
+    Sign in with Microsoft
+  </button>
+  <p class="sub" style="margin-top:4px">Use your @meridianak.com account</p>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="loading-screen" style="display:none;">
+  <div class="screen-logo">M</div>
+  <div class="spinner" role="status" aria-label="Loading"></div>
+  <p id="loading-msg">Loading…</p>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">M</div>
+    <div><h1>Meridian Management</h1><p>Expense Tracker</p></div>
+  </div>
+  <div class="header-right">
+    <span id="offline-pill" style="display:none;background:var(--amber-bg);color:var(--amber-text);border-radius:999px;font-size:11px;font-weight:700;padding:3px 10px">Offline — data may be stale</span>
+<div class="apps-menu-wrap" id="apps-menu-wrap">
+      <button class="apps-btn" onclick="toggleAppsMenu(event)" title="Switch app" aria-haspopup="true" aria-expanded="false" id="apps-btn">⊞ Apps</button>
+      <div class="apps-dropdown" id="apps-dropdown" style="display:none" role="menu">
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/timesheet.html">
+          <div class="app-entry-icon">M</div>
+          <div><div class="app-entry-name">Timesheet</div><div class="app-entry-sub">Log weekly hours</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/expense-tracker.html">
+          <div class="app-entry-icon">M</div>
+          <div><div class="app-entry-name">Expense Tracker</div><div class="app-entry-sub current">Current app</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/receipt-tracker.html">
+          <div class="app-entry-icon">M</div>
+          <div><div class="app-entry-name">Credit Card Tracker</div><div class="app-entry-sub">Log credit card receipts</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/device-checkout.html">
+          <div class="app-entry-icon">M</div>
+          <div><div class="app-entry-name">Device Checkout</div><div class="app-entry-sub">Equipment & vehicle loans</div></div>
+        </a>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/available.html">
+          <div class="app-entry-icon">M</div>
+          <div><div class="app-entry-name">Device Availability</div><div class="app-entry-sub">Live board — what's free now</div></div>
+        </a>
+        <div style="border-top:1px solid var(--border);margin:4px 0"></div>
+        <a class="app-entry" role="menuitem" href="https://tools.meridianak.com/">
+          <div class="app-entry-icon" style="background:var(--bg);color:var(--muted)">⌂</div>
+          <div><div class="app-entry-name">Home</div><div class="app-entry-sub">All Meridian tools</div></div>
+        </a>
+      </div>
+    </div>
+    <button class="user-chip" id="settings-btn" onclick="openSettings()" title="Settings" style="padding:5px 10px;gap:6px">
+      ⚙️ <span style="font-size:12px">Settings</span>
+    </button>
+    <button class="user-chip" onclick="signOut()" title="Sign out">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-name">Loading…</span>
+    </button>
+  </div>
+</header>
+
+
+
+<!-- NAV -->
+<nav>
+  <button class="active" aria-current="page" onclick="showTab('portal')"    id="nav-portal"><span aria-hidden="true">💳</span> Log Expense</button>
+  <button onclick="showTab('log')" id="nav-log"><span aria-hidden="true">📋</span> Expense Log<span class="nav-badge" id="nav-badge" style="display:none">0</span></button>
+  <button onclick="showTab('locations')" id="nav-locations"><span aria-hidden="true">📍</span> Per Diem Locations</button>
+  <button onclick="showTab('projects')" id="nav-projects"><span aria-hidden="true">📁</span> Projects</button>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+  <!-- ═══ PORTAL TAB ═══ -->
+  <div id="tab-portal">
+    <div class="hero">
+      <div class="hero-left">
+        <h2 id="portal-greeting">Welcome back!</h2>
+        <p>Log mileage, per diem, or out-of-pocket expenses. Submissions are stored in SharePoint and visible to your team.</p>
+      </div>
+      <button class="btn-log-expense" onclick="openExpenseModal()">+ Log an Expense</button>
+    </div>
+    <div class="my-recent" id="my-recent-wrap" style="display:none;">
+      <h3>My Recent Submissions</h3>
+      <div id="my-recent-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══ EXPENSE LOG TAB ═══ -->
+  <div id="tab-log" style="display:none;">
+
+    <!-- Pending banner -->
+    <div class="pending-banner" id="pending-banner">
+      <div class="pending-banner-left">
+        <div class="pending-count" id="pending-count">0</div>
+        <div>
+          <div class="pending-banner-label" id="pending-label">Unprocessed</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:2px">
+            <span class="pending-banner-msg" id="pending-msg">expenses pending processing</span>
+            <span class="pending-banner-amt" id="pending-amt"></span>
+          </div>
+        </div>
+      </div>
+      <button class="pending-banner-link" id="pending-link" onclick="filterUnprocessed()">Show unprocessed only →</button>
+    </div>
+
+    <!-- Filter bar -->
+    <details class="filter-bar filters" id="filters-details" open>
+      <summary class="filters-summary" id="filters-summary"><span aria-hidden="true">🔎</span> Filters</summary>
+      <div class="filter-row">
+        <input type="text" id="log-search" placeholder="🔍  Search name, description, project code…" oninput="renderLog()">
+        <span class="filter-sep">|</span>
+        <span class="filter-group-label">Month</span>
+        <input type="month" id="filter-month" onchange="onMonthFilter()" title="Filter by month">
+        <span class="filter-group-label" style="margin-left:4px">or Range</span>
+        <input type="date" id="filter-date-from" onchange="onDateRangeFilter()" title="From date">
+        <span style="font-size:12px;color:var(--muted)">–</span>
+        <input type="date" id="filter-date-to" onchange="onDateRangeFilter()" title="To date">
+      </div>
+      <div class="filter-row">
+        <select id="filter-person" onchange="renderLog()" style="min-width:160px;">
+          <option value="">All Employees</option>
+        </select>
+        <select id="filter-type" onchange="renderLog()">
+          <option value="">All Types</option>
+          <option value="Mileage">🚗 Mileage</option>
+          <option value="Per Diem">🍽 Per Diem</option>
+          <option value="Out of Pocket">💸 Out of Pocket</option>
+        </select>
+        <select id="filter-billable" onchange="renderLog()">
+          <option value="">All Billing</option>
+          <option value="Billable">Billable</option>
+          <option value="Not Billable">Not Billable</option>
+          <option value="Unsure">Unsure</option>
+        </select>
+        <select id="filter-status" onchange="renderLog()">
+          <option value="">All Statuses</option>
+          <option value="unprocessed">Unprocessed</option>
+          <option value="processed">Processed</option>
+          <option value="billed">Billed</option>
+        </select>
+        <select id="filter-project" onchange="renderLog()" style="min-width:150px;">
+          <option value="">All Projects</option>
+        </select>
+        <button onclick="clearFilters()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;height:34px;">✕ Clear All</button>
+      </div>
+      <div class="active-filters" id="active-filters"></div>
+    </details>
+
+    <!-- Actions bar -->
+    <div class="log-actions">
+      <div id="log-totals" class="log-meta"></div>
+      <button class="btn-export" onclick="exportToExcel()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Excel
+      </button>
+    </div>
+
+    <div class="log-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('date')"    id="th-date"    role="button" tabindex="0" aria-sort="descending" onkeydown="thKey(event,'date')">Date</th>
+            <th onclick="sortBy('name')"    id="th-name"    role="button" tabindex="0" aria-sort="none" onkeydown="thKey(event,'name')">Employee</th>
+            <th onclick="sortBy('type')"    id="th-type"    role="button" tabindex="0" aria-sort="none" onkeydown="thKey(event,'type')">Type</th>
+            <th class="no-sort">Description</th>
+            <th onclick="sortBy('billable')" id="th-billable" role="button" tabindex="0" aria-sort="none" onkeydown="thKey(event,'billable')">Billing</th>
+            <th onclick="sortBy('project')" id="th-project" role="button" tabindex="0" aria-sort="none" onkeydown="thKey(event,'project')">Project Name</th>
+            <th onclick="sortBy('amount')"  id="th-amount"  role="button" tabindex="0" aria-sort="none" style="text-align:right" onkeydown="thKey(event,'amount')">Amount</th>
+            <th class="no-sort">Billed</th>
+            <th class="no-sort">Processed</th>
+            <th class="no-sort"></th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ LOCATIONS TAB ═══ -->
+  <div id="tab-locations" style="display:none;">
+    <div id="locations-content"></div>
+  </div>
+
+  <div id="tab-projects" style="display:none;">
+    <div id="projects-content"></div>
+  </div>
+
+</main>
+
+<!-- EXPENSE MODAL -->
+<div class="modal-overlay" id="expense-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h3 id="expense-modal-title" style="margin:0">Log an Expense</h3>
+      <button aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0;width:40px;height:40px" onclick="closeModal('expense-modal')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="exp-name">Employee Name *</label>
+        <input type="text" id="exp-name" placeholder="e.g. John Smith" autocomplete="off" />
+      </div>
+      <div class="form-group">
+  <label for="exp-date">Date *</label>
+  <input type="date" id="exp-date" style="width:100%" />
+</div>
+    </div>
+    <div class="form-group">
+      <label for="exp-type">Expense Type *</label>
+      <select id="exp-type" onchange="onTypeChange()">
+        <option value="">— Select type —</option>
+        <option value="Mileage">🚗 Mileage</option>
+        <option value="Per Diem">🍽 Per Diem</option>
+        <option value="Out of Pocket">💸 Out of Pocket</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="exp-desc">Description / Purpose *</label>
+      <input type="text" id="exp-desc" placeholder="e.g. Drive to Anchorage project site" autocomplete="off" />
+    </div>
+    <div id="mileage-fields" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="exp-odo-start">Starting Odometer</label>
+          <input type="number" id="exp-odo-start" placeholder="e.g. 45230" min="0" step="1" inputmode="numeric" oninput="calcOdometer()" />
+        </div>
+        <div class="form-group">
+          <label for="exp-odo-end">Ending Odometer</label>
+          <input type="number" id="exp-odo-end" placeholder="e.g. 45312" min="0" step="1" inputmode="numeric" oninput="calcOdometer()" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="exp-miles">Miles Driven *</label>
+        <input type="number" id="exp-miles" placeholder="Or enter directly" min="0" step="0.1" inputmode="decimal" oninput="calcMileage()" />
+      </div>
+      <input type="hidden" id="exp-rate" value="0.70" />
+      <div id="mileage-calc-preview">Reimbursement: $0.00</div>
+      <div id="mileage-rate-note" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+    </div>
+    <div id="perdiem-fields" style="display:none;">
+      <div class="form-group">
+        <label for="exp-pd-location">Per Diem Location *</label>
+        <select id="exp-pd-location" onchange="onLocationChange()">
+          <option value="">— Select location —</option>
+        </select>
+      </div>
+      <div id="pd-rates-display" style="display:none;background:var(--bg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:12px;gap:18px">
+        <span>🍽 Meals rate: <strong id="pd-meals-rate-label">$0.00</strong>/day</span>
+        <span>📋 Incidentals rate: <strong id="pd-incidentals-rate-label">$0.00</strong>/day</span>
+      </div>
+      <div class="form-group">
+          <label>Include</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button type="button" id="pd-toggle-meals" class="pd-toggle" onclick="togglePdItem('meals')">🍽 Meals</button>
+            <button type="button" id="pd-toggle-incidentals" class="pd-toggle" onclick="togglePdItem('incidentals')">📋 Incidentals</button>
+          </div>
+        </div>
+      <div id="perdiem-total-preview" style="display:none;background:var(--green-bg);border-radius:8px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--green-dark);border:1px solid #86efac;margin-bottom:8px"></div>
+    </div>
+    <div id="amount-fields" style="display:none;">
+      <div class="form-group">
+        <label id="amount-label" for="exp-amount">Amount ($) *</label>
+        <input type="number" id="exp-amount" placeholder="0.00" min="0" step="0.01" inputmode="decimal" />
+      </div>
+      <div id="exp-receipt-upload" style="display:none;">
+        <div class="form-group">
+          <label>Receipt Image *</label>
+          <div id="exp-existing-receipt" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--blue-bg);border-radius:8px;font-size:12px;margin-bottom:8px">
+            📎 Current: <a href="#" target="_blank" style="color:var(--brand-light);font-weight:600;text-decoration:none">View receipt</a>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted)">Upload new file to replace</span>
+          </div>
+          <div class="exp-upload-zone" id="exp-upload-zone" onclick="document.getElementById('exp-receipt-file').click()">
+            <div style="font-size:24px;margin-bottom:4px">📷</div>
+            <p style="font-size:12px;color:var(--muted)"><strong style="color:var(--brand-light)">Click to upload</strong> or drag & drop</p>
+            <input type="file" id="exp-receipt-file" accept="image/*,.pdf,.heic" onchange="expHandleFileSelect(event)">
+          </div>
+          <div id="exp-upload-preview" style="display:none" class="exp-upload-preview">
+            <span>📎</span><span id="exp-upload-filename"></span>
+            <button type="button" class="exp-clear-file" onclick="expClearFile()">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Billable? *</label>
+      <div class="billable-toggle">
+        <button type="button" class="toggle-btn yes" id="exp-toggle-yes" onclick="setExpBillable('Billable')">✓ Billable</button>
+        <button type="button" class="toggle-btn no" id="exp-toggle-no" onclick="setExpBillable('Not Billable')">✗ Not Billable</button>
+        <button type="button" class="toggle-btn unsure" id="exp-toggle-unsure" onclick="setExpBillable('Unsure')">? Unsure</button>
+      </div>
+    </div>
+    <div class="form-group" id="project-code-group">
+      <label for="exp-project-select">Project Name <span id="project-required-star">*</span></label>
+      <select id="exp-project-select">
+        <option value="">— Select project —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="exp-notes">Notes <span style="font-weight:400;color:var(--muted)">(Client Project/ER Number?)</span></label>
+      <textarea id="exp-notes" rows="2" placeholder="Any additional details…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('expense-modal')">Cancel</button>
+      <button class="btn-confirm" id="expense-save-btn" onclick="saveExpense()">💾 Submit Expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOCATION MODAL -->
+<div class="modal-overlay" id="location-modal">
+  <div class="modal" style="width:400px;" role="dialog" aria-modal="true" aria-labelledby="location-modal-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h3 id="location-modal-title" style="margin:0">Add Per Diem Location</h3>
+      <button aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0;width:40px;height:40px" onclick="closeModal('location-modal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label for="loc-name">Location Name *</label>
+      <input type="text" id="loc-name" placeholder="e.g. Anchorage, Fairbanks, Remote Site A" autocomplete="off" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="loc-meals-rate">Meals Rate ($/day) *</label>
+        <input type="number" id="loc-meals-rate" placeholder="0.00" min="0" step="0.01" inputmode="decimal" />
+      </div>
+      <div class="form-group">
+        <label for="loc-incidentals-rate">Incidentals Rate ($/day) *</label>
+        <input type="number" id="loc-incidentals-rate" placeholder="0.00" min="0" step="0.01" inputmode="decimal" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('location-modal')">Cancel</button>
+      <button class="btn-confirm" id="location-save-btn" onclick="saveLocation()">💾 Save Location</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-overlay" id="project-modal">
+  <div class="modal" style="width:400px;" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h3 id="project-modal-title" style="margin:0">Add Project</h3>
+      <button aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0;width:40px;height:40px" onclick="closeModal('project-modal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label for="proj-name">Project Name *</label>
+      <input type="text" id="proj-name" placeholder="e.g. Anchorage Site Survey 2026" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();saveProject();}" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('project-modal')">Cancel</button>
+      <button class="btn-confirm" id="project-save-btn" onclick="saveProject()">💾 Save Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal" style="width:380px;" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 id="delete-modal-title" style="margin:0">Delete Expense?</h3>
+      <button aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0;width:40px;height:40px" onclick="closeModal('delete-modal')">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--text);margin-bottom:20px;line-height:1.6;" id="delete-modal-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="btn-confirm danger" id="delete-confirm-btn" onclick="confirmDelete()">🗑 Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- GENERIC CONFIRM MODAL -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="width:380px;" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 id="confirm-modal-title" style="margin:0">Confirm</h3>
+      <button aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0;width:40px;height:40px" onclick="closeModal('confirm-modal')">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--text);margin-bottom:20px;line-height:1.6;" id="confirm-modal-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('confirm-modal')" id="confirm-modal-cancel">Cancel</button>
+      <button class="btn-confirm" id="confirm-modal-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════
+const CONFIG = {
+  clientId:           "ff1fd3ee-7baf-4d72-b978-742a29de8eab",
+  tenantId:           "4fa4840a-2a70-49e0-93ab-fd8b099bbeed",
+  siteHostname:       "meridianak.sharepoint.com",
+  expenseListName:    "ExpenseLog",
+  locationsListName:  "PerDiemLocations",
+  projectNamesListName: "ProjectNames",
+  receiptLibrary:     "ExpenseReceipts",
+  pollInterval:       60000,
+  mileageConfigListName: 'AppConfig'
+};
+// Add admin emails here (lowercase)
+const ADMIN_EMAILS = ['bboerger@meridianak.com'];
+const isAdmin = () => ADMIN_EMAILS.includes((currentUser?.email || '').toLowerCase());
+const DEFAULT_IRS_RATE = 0.70; // 2025 IRS standard mileage rate
+
+// ── State ──
+let msalInstance       = null;
+let siteId             = null;
+let expenses           = [];
+let perDiemLocations   = [];
+let projectNames       = [];
+let projectItems       = [];
+let currentUser        = null;
+let pollTimer          = null;
+let isSaving           = false;
+let editingItemId      = null;
+let editingLocationId  = null;
+let editingProjectId   = null;
+let deleteItemId       = null;
+let isDeletingExpense  = false;
+let deletingLocationId = null;
+let deletingProjectId  = null;
+let expBillableValue   = '';
+let currentMileageRate = DEFAULT_IRS_RATE;
+let sortField          = 'date';
+let sortDir            = 'desc';
+
+// ── MSAL ──
+const msalConfig = {
+  auth: { clientId: CONFIG.clientId, authority: `https://login.microsoftonline.com/${CONFIG.tenantId}`, redirectUri: window.location.origin + '/auth-return.html' },
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+};
+const graphScopes = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
+
+async function initMsal() {
+  try {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+    await msalInstance.initialize();
+    showLoading('Checking authentication…');
+    const response = await msalInstance.handleRedirectPromise();
+    if (response) { msalInstance.setActiveAccount(response.account); await startApp(); }
+    else {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) { msalInstance.setActiveAccount(accounts[0]); await startApp(); }
+      else showSignIn();
+    }
+  } catch (e) { console.error(e); showSignIn(); }
+}
+
+function signIn()  { msalInstance.loginRedirect({ scopes: graphScopes }); }
+function signOut() {
+  showConfirm('Sign out of Expense Tracker?', () => {
+    clearInterval(pollTimer);
+    msalInstance.logoutRedirect({ postLogoutRedirectUri: window.location.href });
+  }, { title: 'Sign Out', confirmLabel: 'Sign Out' });
+}
+
+async function getToken() {
+  const account = msalInstance.getActiveAccount();
+  try { return (await msalInstance.acquireTokenSilent({ scopes: graphScopes, account })).accessToken; }
+  catch (e) { if (e instanceof msal.InteractionRequiredAuthError) msalInstance.acquireTokenRedirect({ scopes: graphScopes, account }); throw e; }
+}
+
+async function graph(path, options = {}, _retried = false) {
+  const token = await getToken();
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+  });
+  if ((res.status === 429 || res.status === 503) && !_retried) {
+    const wait = Math.min((parseInt(res.headers.get('Retry-After')) || 2) * 1000, 10000);
+    await new Promise(r => setTimeout(r, wait));
+    return graph(path, options, true);
+  }
+  const text = await res.text();
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch (e) {} }
+  if (!res.ok) {
+    const msg = data?.error?.message || res.statusText || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+// Paginated list reads — ALWAYS use for list items; follows nextLink.
+async function graphGetAll(path) {
+  let url = path, out = [];
+  while (url) {
+    const page = await graph(url, { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } });
+    out = out.concat(page?.value || []);
+    url = page?.['@odata.nextLink']
+      ? page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '') : null;
+  }
+  return out;
+}
+
+async function graphRaw(path, options = {}) {
+  const token = await getToken();
+  return fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) }
+  });
+}
+
+async function uploadExpenseReceipt(file, fileName) {
+  const drivesRes = await graph(`/sites/${siteId}/drives`);
+  const drive = drivesRes.value.find(d => d.name === CONFIG.receiptLibrary);
+  if (!drive) throw new Error(`Document library "${CONFIG.receiptLibrary}" not found in SharePoint. Please create it first.`);
+  const ab = await file.arrayBuffer();
+  const res = await graphRaw(`/drives/${drive.id}/root:/${fileName}:/content`, {
+    method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: ab
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `Upload failed ${res.status}`); }
+  const data = await res.json();
+  return data.webUrl;
+}
+
+async function loadMileageRate() {
+  try {
+    const res = await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.mileageConfigListName)}/items?$expand=fields&$filter=fields/Title eq 'MileageRate'&$top=1`);
+    if (res.value && res.value.length > 0) {
+      mileageConfigItemId = res.value[0].id;
+      const val = parseFloat(res.value[0].fields.ConfigValue);
+      if (!isNaN(val) && val > 0) currentMileageRate = val;
+    }
+  } catch (e) { /* use default */ }
+}
+
+async function startApp() {
+  const account = msalInstance.getActiveAccount();
+  showLoading('Connecting to SharePoint…');
+  currentUser = { name: account.name || account.username.split('@')[0], email: account.username };
+  document.getElementById('user-name').textContent   = currentUser.name;
+  document.getElementById('user-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
+  document.getElementById('portal-greeting').textContent = `Welcome back, ${currentUser.name.split(' ')[0]}!`;
+  applyAdminGating();
+  try {
+    const site = await graph(`/sites/${CONFIG.siteHostname}`);
+    siteId = site.id;
+    showLoading('Loading expenses…');
+    await ensureExpenseList();
+    await ensureLocationsListExists();
+    await loadLocations();
+    await loadProjectNames();
+    await loadMileageRate();
+    await refreshData();
+    hideScreens();
+    startPolling();
+    const hash = window.location.hash.replace('#','');
+    if (hash === 'log') showTab(hash);
+  } catch (e) {
+    document.getElementById('loading-msg').innerHTML =
+      `<span style="color:#fca5a5;font-size:14px;max-width:340px;display:block;line-height:1.6">⚠ ${escHtml(e.message)}</span>
+       <button onclick="location.reload()" style="margin-top:14px;background:var(--accent);color:var(--brand-dark);border:none;border-radius:var(--radius-sm);padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer">Retry</button>`;
+  }
+}
+
+// Client-side admin gating — hides admin/destructive UI from non-admins.
+// (Not a security boundary; SharePoint permissions remain the source of truth.)
+function applyAdminGating() {
+  const admin = isAdmin();
+  const settingsBtn = document.getElementById('settings-btn');
+  const navLocations = document.getElementById('nav-locations');
+  const navProjects  = document.getElementById('nav-projects');
+  if (settingsBtn) settingsBtn.style.display = admin ? '' : 'none';
+  if (navLocations) navLocations.style.display = admin ? '' : 'none';
+  if (navProjects)  navProjects.style.display  = admin ? '' : 'none';
+}
+
+async function ensureExpenseList() {
+  try { await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.expenseListName)}`); }
+  catch (e) {
+    throw new Error(
+      `The "ExpenseLog" SharePoint list was not found. ` +
+      `Please create it manually in SharePoint, then reload. ` +
+      `See the Setup Guide for column names and types.`
+    );
+  }
+}
+
+async function ensureLocationsListExists() {
+  try { await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.locationsListName)}`); }
+  catch (e) {
+    throw new Error(
+      `The "PerDiemLocations" SharePoint list was not found. ` +
+      `Please create it in SharePoint with columns: Title (Text), MealsRate (Number), IncidentalsRate (Number), then reload.`
+    );
+  }
+}
+
+async function loadLocations() {
+  try {
+    const items = await graphGetAll(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.locationsListName)}/items?$expand=fields&$top=500`);
+    perDiemLocations = items.map(item => ({
+      itemId:           item.id,
+      name:             item.fields.Title          || '',
+      mealsRate:        item.fields.MealsRate       || 0,
+      incidentalsRate:  item.fields.IncidentalsRate || 0
+    })).sort((a, b) => a.name.localeCompare(b.name));
+    populateLocationDropdown();
+    if (document.getElementById('tab-locations').style.display === 'block') renderLocations();
+  } catch (e) {
+    console.error('Could not load locations', e);
+  }
+}
+
+async function loadProjectNames() {
+  try {
+    const items = await graphGetAll(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.projectNamesListName)}/items?$expand=fields&$top=500`);
+    projectItems = items
+      .map(item => ({ itemId: item.id, name: item.fields.Title || '' }))
+      .filter(x => x.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    projectNames = projectItems.map(x => x.name);
+    populateProjectNameDropdown();
+    if (document.getElementById('tab-projects').style.display === 'block') renderProjects();
+  } catch (e) { console.warn('Could not load project names', e); }
+}
+
+function populateProjectNameDropdown() {
+  const sel = document.getElementById('exp-project-select');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML =
+    '<option value="">— Select project —</option>' +
+    projectNames.map(n => `<option value="${escHtml(n)}"${n === cur ? ' selected' : ''}>${escHtml(n)}</option>`).join('');
+}
+
+async function addNewProjectName(name) {
+  try {
+    await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.projectNamesListName)}/items`,
+      { method: 'POST', body: JSON.stringify({ fields: { Title: name } }) });
+    await loadProjectNames();
+  } catch (e) { console.warn('Could not save new project name', e); }
+}
+
+function onProjectSelectChange(selectId, inputId) {
+  const sel = document.getElementById(selectId);
+  const inp = document.getElementById(inputId);
+  inp.style.display = sel.value === '__other__' ? 'block' : 'none';
+  if (sel.value === '__other__') setTimeout(() => inp.focus(), 60);
+}
+
+function populateLocationDropdown() {
+  const sel = document.getElementById('exp-pd-location');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select location —</option>' +
+    perDiemLocations.map(l => `<option value="${escHtml(l.itemId)}"${l.itemId===cur?' selected':''}>${escHtml(l.name)}</option>`).join('');
+}
+
+let isRefreshing = false;
+async function refreshData() {
+  if (isRefreshing) return;
+  isRefreshing = true;
+  try {
+    const items = await graphGetAll(
+      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.expenseListName)}/items?$expand=fields&$top=999`
+    );
+    expenses = items.map(item => {
+      const f = item.fields;
+      const rawNotes = f.Notes || '';
+      let perDiem = null, notes = rawNotes;
+      if (rawNotes.startsWith('__pd__')) {
+        const rest    = rawNotes.slice(6);
+        const sep     = rest.indexOf('||');
+        const jsonStr = sep >= 0 ? rest.slice(0, sep) : rest;
+        notes = sep >= 0 ? rest.slice(sep + 2) : '';
+        try { perDiem = JSON.parse(jsonStr); } catch(_) {}
+      }
+      return {
+        itemId:       item.id,
+        employeeName: f.EmployeeName  || '',
+        email:        f.EmployeeEmail || '',
+        expenseDate:  f.ExpenseDate   || '',
+        expenseType:  f.ExpenseType   || '',
+        description:  f.Description  || '',
+        miles:        f.Miles        || 0,
+        rate:         f.Rate         || DEFAULT_IRS_RATE,
+        amount:       f.Amount       || 0,
+        billable:     f.Billable     || '',
+        projectCode:  f.ProjectCode  || '',
+        notes,
+        perDiem,
+        isBilled:     !!f.IsBilled,
+        isProcessed:  !!f.IsProcessed,
+        submittedAt:  f.SubmittedAt  || 0,
+        receiptUrl:   f.ReceiptUrl   || '',
+        odometerStart: f.OdometerStart || 0,
+        odometerEnd:   f.OdometerEnd   || 0
+      };
+    }).sort((a, b) => b.submittedAt - a.submittedAt);
+
+    populateFilterDropdowns();
+    renderMyRecent();
+    renderUnprocessedBanner();
+    if (document.getElementById('tab-log').style.display === 'block') renderLog();
+    if (document.getElementById('tab-locations').style.display === 'block') renderLocations();
+    if (document.getElementById('tab-projects').style.display === 'block') renderProjects();
+    setOffline(false);
+
+  } catch (e) {
+    console.error(e);
+    setOffline(true);
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+function setOffline(on) {
+  const pill = document.getElementById('offline-pill');
+  if (pill) pill.style.display = on ? 'inline-block' : 'none';
+}
+
+// ── Populate dynamic dropdowns ────────────────────────────
+function populateFilterDropdowns() {
+  const persons  = [...new Set(expenses.map(e => e.employeeName).filter(Boolean))].sort();
+  const projects = [...new Set(expenses.map(e => e.projectCode).filter(Boolean))].sort();
+
+  const personSel  = document.getElementById('filter-person');
+  const projectSel = document.getElementById('filter-project');
+  const curPerson  = personSel.value;
+  const curProject = projectSel.value;
+
+  personSel.innerHTML  = '<option value="">All Employees</option>' +
+    persons.map(p => `<option value="${escHtml(p)}"${p===curPerson?' selected':''}>${escHtml(p)}</option>`).join('');
+  projectSel.innerHTML = '<option value="">All Projects</option>' +
+    projects.map(p => `<option value="${escHtml(p)}"${p===curProject?' selected':''}>${escHtml(p)}</option>`).join('');
+}
+
+// ── Summary Stats (personal — current user only) ──────────
+function renderSummary() {
+  if (!currentUser) return;
+  const mine       = expenses.filter(e => e.email === currentUser.email);
+  const total      = mine.length;
+  const totalAmt   = mine.reduce((s, e) => s + e.amount, 0);
+  const pending    = mine.filter(e => !e.isProcessed).length;
+  const billable   = mine.filter(e => e.billable === 'Billable' && !e.isBilled).length;
+  const mileageAmt = mine.filter(e => e.expenseType === 'Mileage').reduce((s, e) => s + e.amount, 0);
+
+  document.getElementById('summary-bar').innerHTML = `
+    <div class="stat-card" style="border-left:4px solid var(--brand)">
+      <span class="label">My Expenses</span>
+      <span class="value" style="color:var(--brand)">${total}</span>
+      <span class="sub">your submissions</span>
+    </div>
+    <div class="stat-card" style="border-left:4px solid var(--accent)">
+      <span class="label">My Total</span>
+      <span class="value" style="color:var(--accent);font-size:22px">${fmtCurrency(totalAmt)}</span>
+      <span class="sub">all time</span>
+    </div>
+    <div class="stat-card" style="border-left:4px solid var(--amber)">
+      <span class="label">Unprocessed</span>
+      <span class="value" style="color:var(--amber)">${pending}</span>
+      <span class="sub">awaiting acknowledgment</span>
+    </div>
+    <div class="stat-card" style="border-left:4px solid var(--blue)">
+      <span class="label">Billable Unbilled</span>
+      <span class="value" style="color:var(--blue)">${billable}</span>
+      <span class="sub">not yet marked billed</span>
+    </div>
+    <div class="stat-card" style="border-left:4px solid var(--green)">
+      <span class="label">Mileage</span>
+      <span class="value" style="color:var(--green);font-size:22px">${fmtCurrency(mileageAmt)}</span>
+      <span class="sub">reimbursement earned</span>
+    </div>`;
+}
+
+function renderMyRecent() {
+  const mine = expenses.filter(e => e.email === currentUser.email).slice(0, 5);
+  const wrap = document.getElementById('my-recent-wrap');
+  if (mine.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  document.getElementById('my-recent-list').innerHTML = mine.map(e => `
+    <div class="recent-row">
+      <span class="recent-type-pill ${typeClass(e.expenseType)}">${escHtml(e.expenseType)}</span>
+      <div class="recent-info">
+        <div class="recent-desc">${escHtml(e.description)}</div>
+        <div class="recent-meta">${fmtDate(e.expenseDate)} · ${escHtml(e.billable)}${e.projectCode ? ' · ' + escHtml(e.projectCode) : ''}</div>
+      </div>
+      <span class="recent-amount">${fmtCurrency(e.amount)}</span>
+    </div>`).join('');
+}
+
+// ── Expense Log ───────────────────────────────────────────
+// ── Sort by column header click ──────────────────────────
+function sortBy(field) {
+  if (sortField === field) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  else { sortField = field; sortDir = 'desc'; }
+  updateSortHeaders();
+  renderLog();
+}
+
+function thKey(e, field) {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(field); }
+}
+
+function updateSortHeaders() {
+  const fields = ['date','name','type','billable','project','amount'];
+  fields.forEach(f => {
+    const th = document.getElementById('th-' + f);
+    if (!th) return;
+    th.classList.remove('sorted-asc','sorted-desc');
+    if (sortField === f) {
+      th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+      th.setAttribute('aria-sort', sortDir === 'asc' ? 'ascending' : 'descending');
+    } else {
+      th.setAttribute('aria-sort', 'none');
+    }
+  });
+}
+
+function getFilteredExpenses() {
+  const search   = (document.getElementById('log-search').value   || '').toLowerCase();
+  const person   = document.getElementById('filter-person').value;
+  const typeF    = document.getElementById('filter-type').value;
+  const billF    = document.getElementById('filter-billable').value;
+  const statusF  = document.getElementById('filter-status').value;
+  const projectF = document.getElementById('filter-project').value;
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo   = document.getElementById('filter-date-to').value;
+
+  let rows = expenses.filter(e => {
+    if (person   && e.employeeName !== person)  return false;
+    if (typeF    && e.expenseType  !== typeF)    return false;
+    if (billF    && e.billable     !== billF)    return false;
+    if (projectF && e.projectCode  !== projectF) return false;
+    if (statusF === 'processed'   && !e.isProcessed) return false;
+    if (statusF === 'unprocessed' && e.isProcessed)  return false;
+    if (statusF === 'billed'      && !e.isBilled)    return false;
+    if (dateFrom && expStartDate(e) < dateFrom)  return false;
+    if (dateTo   && expStartDate(e) > dateTo)   return false;
+    if (search) {
+      const hay = `${e.employeeName} ${e.description} ${e.projectCode} ${e.notes}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  const dir = sortDir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    if (sortField === 'date')     return (b.submittedAt - a.submittedAt) * -dir;
+    if (sortField === 'amount')   return (a.amount - b.amount) * dir;
+    if (sortField === 'name')     return a.employeeName.localeCompare(b.employeeName) * dir;
+    if (sortField === 'type')     return a.expenseType.localeCompare(b.expenseType) * dir;
+    if (sortField === 'billable') return a.billable.localeCompare(b.billable) * dir;
+    if (sortField === 'project')  return (a.projectCode||'').localeCompare(b.projectCode||'') * dir;
+    return (b.submittedAt - a.submittedAt);
+  });
+
+  return rows;
+}
+
+function renderLog() {
+  renderActiveFilterChips();
+  renderUnprocessedBanner();
+  const rows = getFilteredExpenses();
+  const tbody = document.getElementById('log-body');
+
+  if (rows.length === 0) {
+    const anyFilter = hasActiveFilters();
+    const body = anyFilter
+      ? `<div style="font-size:40px" aria-hidden="true">🔍</div>
+         <div style="font-size:15px;font-weight:700;margin-top:6px">No matches</div>
+         <div style="font-size:13px;color:var(--muted);margin-top:4px">Try clearing filters.</div>
+         <button onclick="clearFilters()" class="btn-add-loc" style="margin:14px auto 0">Clear filters</button>`
+      : `<div style="font-size:40px" aria-hidden="true">💳</div>
+         <div style="font-size:15px;font-weight:700;margin-top:6px">No expenses yet</div>
+         <div style="font-size:13px;color:var(--muted);margin-top:4px">Submissions will appear here.</div>
+         <button onclick="showTab('portal');openExpenseModal()" class="btn-add-loc" style="margin:14px auto 0">＋ Log your first expense</button>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${body}</td></tr>`;
+    document.getElementById('log-totals').textContent = '';
+    return;
+  }
+
+  const canDelete = isAdmin();
+  tbody.innerHTML = rows.map(e => {
+    const billLabelClass = e.billable === 'Billable' ? 'billable' :
+                           e.billable === 'Not Billable' ? 'notbillable' : 'unsure';
+    const billLabelText  = e.billable === 'Billable' ? 'BILLABLE' :
+                           e.billable === 'Not Billable' ? 'NON-BILLABLE' : 'UNSURE';
+    return `
+    <tr>
+      <td style="white-space:nowrap;color:var(--muted);font-size:12px">${fmtDate(e.expenseDate)}</td>
+      <td>
+        <strong>${escHtml(e.employeeName)}</strong>
+        ${e.email ? `<div style="font-size:10px;color:var(--muted)">${escHtml(e.email)}</div>` : ''}
+      </td>
+      <td><span class="recent-type-pill ${typeClass(e.expenseType)}">${escHtml(e.expenseType)}</span></td>
+      <td>
+        <span style="font-weight:600">${escHtml(e.description)}</span>
+        ${e.expenseType === 'Per Diem' && e.perDiem ? `
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap">
+            ${e.perDiem.locationName ? `<span>📍 ${escHtml(e.perDiem.locationName)}</span>` : ''}
+            ${e.perDiem.days         ? `<span>${e.perDiem.days} day${e.perDiem.days !== 1 ? 's' : ''}</span>` : ''}
+            ${e.perDiem.includeMeals       ? `<span>🍽 Meals: ${fmtCurrency((e.perDiem.mealsRate||0)*e.perDiem.days)}</span>` : ''}
+            ${e.perDiem.includeIncidentals ? `<span>📋 Incidentals: ${fmtCurrency((e.perDiem.incidentalsRate||0)*e.perDiem.days)}</span>` : ''}
+          </div>` : ''}
+        ${e.expenseType === 'Mileage' ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${e.miles} mi @ $${e.rate}/mi</div>` : ''}
+        ${e.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(e.notes)}</div>` : ''}
+      </td>
+      <td><span class="billable-label ${billLabelClass}">${billLabelText}</span></td>
+      <td style="font-size:12px;color:var(--muted);font-weight:600">${e.projectCode ? escHtml(e.projectCode) : '—'}</td>
+      <td style="text-align:right;font-weight:800;font-size:14px;color:${e.amount>0?'var(--green)':'var(--text)'}">${fmtCurrency(e.amount)}</td>
+      <td>
+        <button class="status-toggle ${e.isBilled ? 'billed-on' : 'billed-off'}"
+          onclick="toggleFlag('${e.itemId}','IsBilled',${!e.isBilled})">
+          ${e.isBilled ? '✓' : '○'} Billed
+        </button>
+      </td>
+      <td>
+        <button class="status-toggle ${e.isProcessed ? 'processed-on' : 'processed-off'}"
+          onclick="toggleFlag('${e.itemId}','IsProcessed',${!e.isProcessed})">
+          ${e.isProcessed ? '✓' : '○'} Processed
+        </button>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn-edit-row edit" onclick="openEditExpense('${e.itemId}')">Edit</button>
+          ${canDelete ? `<button class="btn-edit-row delete" onclick="openDeleteExpense('${e.itemId}')" title="Delete">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const filteredTotal = rows.reduce((s, e) => s + e.amount, 0);
+  document.getElementById('log-totals').innerHTML =
+    `Showing <strong>${rows.length}</strong> of ${expenses.length} expenses &nbsp;·&nbsp; Filtered Total: <strong>${fmtCurrency(filteredTotal)}</strong>`;
+}
+
+function renderUnprocessedBanner() {
+  const unprocessed = expenses.filter(e => !e.isProcessed);
+  const count = unprocessed.length;
+  const total = unprocessed.reduce((s, e) => s + e.amount, 0);
+  const banner   = document.getElementById('pending-banner');
+  const countEl  = document.getElementById('pending-count');
+  const labelEl  = document.getElementById('pending-label');
+  const msgEl    = document.getElementById('pending-msg');
+  const amtEl    = document.getElementById('pending-amt');
+  const linkEl   = document.getElementById('pending-link');
+  const badgeEl  = document.getElementById('nav-badge');
+  if (!banner) return;
+
+  if (count === 0) {
+    banner.className           = 'pending-banner none';
+    countEl.className          = 'pending-count zero';
+    countEl.textContent        = '✓';
+    if (labelEl) labelEl.textContent = 'All Clear';
+    msgEl.textContent          = 'All expenses have been processed';
+    amtEl.textContent          = '';
+    if (linkEl) linkEl.style.display = 'none';
+    if (badgeEl) badgeEl.style.display = 'none';
+  } else {
+    banner.className           = 'pending-banner';
+    countEl.className          = 'pending-count';
+    countEl.textContent        = count;
+    if (labelEl) labelEl.textContent = 'Unprocessed';
+    msgEl.textContent          = `expense${count !== 1 ? 's' : ''} pending processing`;
+    amtEl.textContent          = `— ${fmtCurrency(total)} outstanding`;
+    if (linkEl) linkEl.style.display = 'inline';
+    if (badgeEl) { badgeEl.textContent = count; badgeEl.style.display = 'inline-flex'; }
+  }
+}
+
+function hasActiveFilters() {
+  return ['log-search','filter-person','filter-type','filter-billable','filter-status','filter-project','filter-date-from','filter-date-to','filter-month']
+    .some(id => (document.getElementById(id)?.value || '').trim() !== '');
+}
+
+function filterUnprocessed() {
+  document.getElementById('filter-status').value = 'unprocessed';
+  renderLog();
+}
+
+// Month picker: sets from/to date range to cover the full month
+function onMonthFilter() {
+  const val = document.getElementById('filter-month').value; // "YYYY-MM"
+  if (!val) { renderLog(); return; }
+  const [y, m] = val.split('-').map(Number);
+  const firstDay = `${y}-${String(m).padStart(2,'0')}-01`;
+  const last = new Date(y, m, 0); // day 0 of next month = last day of this month (local)
+  const lastDay  = `${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`;
+  document.getElementById('filter-date-from').value = firstDay;
+  document.getElementById('filter-date-to').value   = lastDay;
+  renderLog();
+}
+
+// When date range is edited manually, clear the month picker
+function onDateRangeFilter() {
+  document.getElementById('filter-month').value = '';
+  renderLog();
+}
+
+function renderUnprocessedTally() { renderUnprocessedBanner(); }
+
+function renderActiveFilterChips() {
+  const chips = [];
+  const search   = document.getElementById('log-search').value;
+  const person   = document.getElementById('filter-person').value;
+  const typeF    = document.getElementById('filter-type').value;
+  const billF    = document.getElementById('filter-billable').value;
+  const statusF  = document.getElementById('filter-status').value;
+  const projectF = document.getElementById('filter-project').value;
+  const dateFrom  = document.getElementById('filter-date-from').value;
+  const dateTo    = document.getElementById('filter-date-to').value;
+  const monthVal  = document.getElementById('filter-month').value;
+
+  if (search)    chips.push({ label: `Search: "${search}"`,         clear: () => { document.getElementById('log-search').value = ''; renderLog(); } });
+  if (person)    chips.push({ label: `Person: ${person}`,           clear: () => { document.getElementById('filter-person').value = ''; renderLog(); } });
+  if (typeF)     chips.push({ label: `Type: ${typeF}`,              clear: () => { document.getElementById('filter-type').value = ''; renderLog(); } });
+  if (billF)     chips.push({ label: `Billing: ${billF}`,           clear: () => { document.getElementById('filter-billable').value = ''; renderLog(); } });
+  if (statusF)   chips.push({ label: `Status: ${statusF}`,          clear: () => { document.getElementById('filter-status').value = ''; renderLog(); } });
+  if (projectF)  chips.push({ label: `Project: ${projectF}`,        clear: () => { document.getElementById('filter-project').value = ''; renderLog(); } });
+  if (monthVal) {
+    const [y,m] = monthVal.split('-');
+    const label = new Date(+y, +m-1, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    chips.push({ label: `Month: ${label}`, clear: () => { document.getElementById('filter-month').value=''; document.getElementById('filter-date-from').value=''; document.getElementById('filter-date-to').value=''; renderLog(); } });
+  } else {
+    if (dateFrom) chips.push({ label: `From: ${fmtDate(dateFrom)}`, clear: () => { document.getElementById('filter-date-from').value = ''; renderLog(); } });
+    if (dateTo)   chips.push({ label: `To: ${fmtDate(dateTo)}`,     clear: () => { document.getElementById('filter-date-to').value = ''; renderLog(); } });
+  }
+
+  const summary = document.getElementById('filters-summary');
+  if (summary) summary.innerHTML = `<span aria-hidden="true">🔎</span> Filters${chips.length ? ` (${chips.length} active)` : ''}`;
+
+  const el = document.getElementById('active-filters');
+  if (chips.length === 0) { el.innerHTML = ''; return; }
+
+  // Store clear functions on window temporarily
+  window._filterClears = chips.map(c => c.clear);
+  el.innerHTML = chips.map((c, i) => `
+    <span class="filter-chip">
+      ${escHtml(c.label)}
+      <button onclick="window._filterClears[${i}]()" title="Remove filter">×</button>
+    </span>`).join('');
+}
+
+function clearFilters() {
+  document.getElementById('log-search').value       = '';
+  document.getElementById('filter-person').value    = '';
+  document.getElementById('filter-type').value      = '';
+  document.getElementById('filter-billable').value  = '';
+  document.getElementById('filter-status').value    = '';
+  document.getElementById('filter-project').value   = '';
+  document.getElementById('filter-date-from').value = '';
+  document.getElementById('filter-date-to').value   = '';
+  document.getElementById('filter-month').value     = '';
+  renderLog();
+}
+
+// ── Export to Excel ───────────────────────────────────────
+function exportToExcel() {
+  const rows = getFilteredExpenses();
+  if (rows.length === 0) { toast('No data to export', 'error'); return; }
+
+  const wsData = [
+    ['Date', 'Employee', 'Email', 'Type', 'Description', 'Miles', 'Rate', 'Amount', 'Billable', 'Project Name', 'Notes', 'Billed', 'Processed']
+  ];
+  rows.forEach(e => wsData.push([
+    e.expenseDate, e.employeeName, e.email, e.expenseType, e.description,
+    e.miles || '', e.rate || '', e.amount, e.billable, e.projectCode, e.notes,
+    e.isBilled ? 'Yes' : 'No', e.isProcessed ? 'Yes' : 'No'
+  ]));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:12},{wch:20},{wch:28},{wch:14},{wch:36},
+    {wch:8},{wch:8},{wch:10},{wch:14},{wch:16},{wch:30},{wch:8},{wch:10}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+
+  const date = todayISO();
+  XLSX.writeFile(wb, `Meridian_Expenses_${date}.xlsx`);
+  toast(`Exported ${rows.length} expense${rows.length !== 1 ? 's' : ''} to Excel`, 'success');
+}
+
+// ── Toggle Billed / Processed ─────────────────────────────
+async function toggleFlag(itemId, field, value) {
+  try {
+    await graph(
+      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.expenseListName)}/items/${itemId}`,
+      { method: 'PATCH', body: JSON.stringify({ fields: { [field]: value } }) }
+    );
+    const exp = expenses.find(e => e.itemId === itemId);
+    if (exp) {
+      if (field === 'IsBilled')    exp.isBilled    = value;
+      if (field === 'IsProcessed') exp.isProcessed = value;
+    }
+    renderLog();
+    toast(value ? `Marked as ${field === 'IsBilled' ? 'billed' : 'processed'}` : 'Unmarked', 'success');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+// ── Per Diem Locations ────────────────────────────────────
+function renderLocations() {
+  const el = document.getElementById('locations-content');
+  const rows = perDiemLocations.length === 0
+    ? `<tr><td colspan="4" class="empty-state">No locations yet. Click "Add Location" to get started.</td></tr>`
+    : perDiemLocations.map(l => `
+      <tr>
+        <td class="loc-name">${escHtml(l.name)}</td>
+        <td class="loc-rate" style="color:var(--brand)">${fmtCurrency(l.mealsRate)}</td>
+        <td class="loc-rate" style="color:var(--brand-light)">${fmtCurrency(l.incidentalsRate)}</td>
+        <td class="loc-rate" style="color:var(--accent)">${fmtCurrency(l.mealsRate + l.incidentalsRate)}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn-edit-row edit" onclick="openEditLocation('${l.itemId}')">Edit</button>
+            <button class="btn-edit-row delete" onclick="deleteLocation('${l.itemId}')" title="Delete">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="loc-header">
+      <div>
+        <h2>Per Diem Locations</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px">Manage daily rates for meals and incidentals by location. These appear as options when submitting a per diem expense.</p>
+      </div>
+      <button class="btn-add-loc" onclick="openAddLocation()">+ Add Location</button>
+    </div>
+    <div class="loc-table-wrap">
+      <table class="loc-table">
+        <thead>
+          <tr>
+            <th>Location</th>
+            <th>Meals Rate / Day</th>
+            <th>Incidentals Rate / Day</th>
+            <th>Combined / Day</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function openAddLocation() {
+  editingLocationId = null;
+  document.getElementById('location-modal-title').textContent = 'Add Per Diem Location';
+  document.getElementById('location-save-btn').textContent    = '💾 Save Location';
+  document.getElementById('loc-name').value             = '';
+  document.getElementById('loc-meals-rate').value       = '';
+  document.getElementById('loc-incidentals-rate').value = '';
+  openModal('location-modal');
+  setTimeout(() => document.getElementById('loc-name').focus(), 60);
+}
+
+function openEditLocation(itemId) {
+  const l = perDiemLocations.find(x => x.itemId === itemId);
+  if (!l) return;
+  editingLocationId = itemId;
+  document.getElementById('location-modal-title').textContent = 'Edit Location';
+  document.getElementById('location-save-btn').textContent    = '✓ Save Changes';
+  document.getElementById('loc-name').value             = l.name;
+  document.getElementById('loc-meals-rate').value       = l.mealsRate;
+  document.getElementById('loc-incidentals-rate').value = l.incidentalsRate;
+  openModal('location-modal');
+}
+
+async function saveLocation() {
+  const name            = document.getElementById('loc-name').value.trim();
+  const mealsRate       = parseFloat(document.getElementById('loc-meals-rate').value);
+  const incidentalsRate = parseFloat(document.getElementById('loc-incidentals-rate').value);
+  if (!name)                        { shakeInput('loc-name');             return; }
+  if (isNaN(mealsRate))             { shakeInput('loc-meals-rate');       return; }
+  if (isNaN(incidentalsRate))       { shakeInput('loc-incidentals-rate'); return; }
+
+  if (isSavingLocation) return;
+  isSavingLocation = true;
+  const btn = document.getElementById('location-save-btn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const fields = { Title: name, MealsRate: mealsRate, IncidentalsRate: incidentalsRate };
+    if (editingLocationId) {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.locationsListName)}/items/${editingLocationId}`,
+        { method: 'PATCH', body: JSON.stringify({ fields }) });
+      toast('Location updated', 'success');
+    } else {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.locationsListName)}/items`,
+        { method: 'POST', body: JSON.stringify({ fields }) });
+      toast('Location added', 'success');
+    }
+    closeModal('location-modal');
+    await loadLocations();
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    isSavingLocation = false; btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+function deleteLocation(itemId) {
+  const l = perDiemLocations.find(x => x.itemId === itemId);
+  if (!l) return;
+  showConfirm(`Delete location <strong>${escHtml(l.name)}</strong>? This cannot be undone.`, async () => {
+    if (deletingLocationId === itemId) return;
+    deletingLocationId = itemId;
+    try {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.locationsListName)}/items/${itemId}`,
+        { method: 'DELETE' });
+      toast('Location deleted', 'info');
+      await loadLocations();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { deletingLocationId = null; }
+  }, { title: 'Delete Location', confirmLabel: 'Delete', danger: true });
+}
+
+// ── Dashboard (removed — kept stub so no reference errors) ─
+function renderDashboard() {
+  if (expenses.length === 0) {
+    document.getElementById('dashboard-content').innerHTML =
+      `<div style="text-align:center;padding:60px;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">📊</div><p>No expense data yet. Submit some expenses to see analytics.</p></div>`;
+    return;
+  }
+
+  const totalAmt      = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalCount    = expenses.length;
+  const avgAmount     = totalAmt / totalCount;
+  const processedPct  = Math.round(expenses.filter(e => e.isProcessed).length / totalCount * 100);
+  const billedPct     = Math.round(expenses.filter(e => e.isBilled).length / totalCount * 100);
+
+  // By type
+  const byType = {};
+  expenses.forEach(e => { byType[e.expenseType] = (byType[e.expenseType] || 0) + e.amount; });
+
+  // By person (top 8)
+  const byPerson = {};
+  expenses.forEach(e => { byPerson[e.employeeName] = (byPerson[e.employeeName] || 0) + e.amount; });
+  const topPeople = Object.entries(byPerson).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  // By project (top 8)
+  const byProject = {};
+  expenses.filter(e => e.projectCode).forEach(e => { byProject[e.projectCode] = (byProject[e.projectCode] || 0) + e.amount; });
+  const topProjects = Object.entries(byProject).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  // By billing status
+  const byBilling = { Billable: 0, 'Not Billable': 0, Unsure: 0 };
+  expenses.forEach(e => { byBilling[e.billable] = (byBilling[e.billable] || 0) + e.amount; });
+
+  // Monthly trend (last 12 months)
+  const monthMap = {};
+  expenses.forEach(e => {
+    if (!e.expenseDate) return;
+    const key = e.expenseDate.slice(0, 7); // YYYY-MM
+    monthMap[key] = (monthMap[key] || 0) + e.amount;
+  });
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    months.push({ key, label: d.toLocaleDateString('en-US', { month: 'short' }), amount: monthMap[key] || 0 });
+  }
+  const maxMonthAmt = Math.max(...months.map(m => m.amount), 1);
+
+  // Donut chart for type breakdown
+  const typeColors = { 'Mileage': 'var(--blue)', 'Per Diem': 'var(--amber)', 'Out of Pocket': 'var(--green)' };
+  const donutData  = Object.entries(byType).map(([k, v]) => ({ label: k, value: v, color: typeColors[k] || 'var(--muted)' }));
+  const donutTotal = donutData.reduce((s, d) => s + d.value, 0);
+  let offset = 0;
+  const r = 40; const circ = 2 * Math.PI * r;
+  const donutSlices = donutData.map(d => {
+    const pct = d.value / donutTotal;
+    const dash = pct * circ;
+    const gap  = circ - dash;
+    const slice = `<circle cx="55" cy="55" r="${r}" fill="none" stroke="${d.color}" stroke-width="18"
+      stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset * circ}" />`;
+    offset += pct;
+    return slice;
+  }).join('');
+
+  // Bar chart helper
+  function barChart(data, colorClass, isCurrency = true) {
+    const max = Math.max(...data.map(d => d[1]), 1);
+    return data.map(([label, val]) => `
+      <div class="bar-row">
+        <span class="bar-label" title="${escHtml(label)}">${escHtml(label)}</span>
+        <div class="bar-wrap"><div class="bar-fill ${colorClass}" style="width:${(val/max*100).toFixed(1)}%"></div></div>
+        <span class="bar-val">${isCurrency ? fmtCurrency(val) : val}</span>
+      </div>`).join('');
+  }
+
+  // Per-person count
+  const byPersonCount = {};
+  expenses.forEach(e => { byPersonCount[e.employeeName] = (byPersonCount[e.employeeName] || 0) + 1; });
+
+  document.getElementById('dashboard-content').innerHTML = `
+
+    <!-- Top stat row -->
+    <div class="dash-stats">
+      <div class="stat-card" style="border-left:4px solid var(--brand)">
+        <span class="label">Total Expenses</span>
+        <span class="value" style="color:var(--brand)">${totalCount}</span>
+        <span class="sub">submissions</span>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--accent)">
+        <span class="label">Total Spend</span>
+        <span class="value" style="color:var(--accent);font-size:22px">${fmtCurrency(totalAmt)}</span>
+        <span class="sub">all time</span>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--blue)">
+        <span class="label">Avg per Expense</span>
+        <span class="value" style="color:var(--blue);font-size:22px">${fmtCurrency(avgAmount)}</span>
+        <span class="sub">average amount</span>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--green)">
+        <span class="label">Processed</span>
+        <span class="value" style="color:var(--green)">${processedPct}%</span>
+        <span class="sub">of all expenses</span>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--purple)">
+        <span class="label">Billed</span>
+        <span class="value" style="color:var(--purple)">${billedPct}%</span>
+        <span class="sub">of all expenses</span>
+      </div>
+    </div>
+
+    <!-- Monthly Trend (full width) -->
+    <div class="dash-card wide" style="margin-bottom:20px;">
+      <h3>Monthly Spend — Last 12 Months</h3>
+      <div class="trend-bars">
+        ${months.map(m => `
+          <div class="trend-col">
+            <span class="trend-amt">${m.amount > 0 ? fmtCurrency(m.amount).replace('$','$') : ''}</span>
+            <div class="trend-bar" style="height:${Math.max((m.amount/maxMonthAmt*90),2).toFixed(1)}px;background:${m.amount > 0 ? 'var(--brand)' : 'var(--border)'}"></div>
+            <span class="trend-month">${m.label}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="dash-grid">
+
+      <!-- Type Breakdown donut -->
+      <div class="dash-card">
+        <h3>Spend by Expense Type</h3>
+        <div class="donut-wrap">
+          <div class="donut">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--bg)" stroke-width="18"/>
+              ${donutSlices}
+            </svg>
+            <div class="donut-center">
+              <span class="dc-val">${fmtCurrency(donutTotal).replace('$','$')}</span>
+              <span class="dc-sub">total</span>
+            </div>
+          </div>
+          <div class="legend">
+            ${donutData.map(d => `
+              <div class="legend-row">
+                <span class="legend-dot" style="background:${d.color}"></span>
+                <span class="legend-name">${escHtml(d.label)}</span>
+                <span class="legend-val">${fmtCurrency(d.value)}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Billing breakdown -->
+      <div class="dash-card">
+        <h3>Billable vs Non-Billable</h3>
+        ${barChart([
+          ['Billable',     byBilling['Billable']     || 0],
+          ['Not Billable', byBilling['Not Billable'] || 0],
+          ['Unsure',       byBilling['Unsure']       || 0]
+        ], 'blue')}
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)">
+            <span>Billable total:</span>
+            <strong style="color:var(--blue)">${fmtCurrency(byBilling['Billable']||0)}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top people by spend -->
+      <div class="dash-card">
+        <h3>Top Employees by Spend</h3>
+        ${topPeople.length > 0 ? barChart(topPeople, 'brand') : '<p style="color:var(--muted);font-size:13px">No data</p>'}
+      </div>
+
+      <!-- Top projects by spend -->
+      <div class="dash-card">
+        <h3>Top Projects by Spend</h3>
+        ${topProjects.length > 0 ? barChart(topProjects, 'accent') : '<p style="color:var(--muted);font-size:13px">No project codes submitted yet</p>'}
+      </div>
+
+      <!-- Submission count by person -->
+      <div class="dash-card">
+        <h3>Submissions per Employee</h3>
+        ${barChart(
+          Object.entries(byPersonCount).sort((a,b)=>b[1]-a[1]).slice(0,8),
+          'green', false
+        )}
+      </div>
+
+      <!-- Processed / Billed status -->
+      <div class="dash-card">
+        <h3>Processing Status</h3>
+        ${barChart([
+          ['Processed',    expenses.filter(e=>e.isProcessed).length],
+          ['Unprocessed',  expenses.filter(e=>!e.isProcessed).length],
+          ['Billed',       expenses.filter(e=>e.isBilled).length],
+          ['Not Billed',   expenses.filter(e=>!e.isBilled).length]
+        ], 'purple', false)}
+      </div>
+
+    </div>`;
+}
+
+// ── Modal: open expense ───────────────────────────────────
+function openExpenseModal() {
+  editingItemId = null;
+  document.getElementById('expense-modal-title').textContent = 'Log an Expense';
+  document.getElementById('expense-save-btn').textContent    = '💾 Submit Expense';
+  document.getElementById('exp-name').value          = currentUser.name;
+  document.getElementById('exp-date').value          = todayISO();
+  document.getElementById('exp-type').value          = '';
+  document.getElementById('exp-desc').value          = '';
+  document.getElementById('exp-miles').value         = '';
+  document.getElementById('exp-odo-start').value     = '';
+  document.getElementById('exp-odo-end').value       = '';
+  document.getElementById('exp-rate').value          = currentMileageRate;
+  document.getElementById('exp-amount').value        = '';
+  document.getElementById('exp-pd-location').value  = '';
+  expBillableValue = '';
+  ['yes','no','unsure'].forEach(c => document.getElementById('exp-toggle-'+c).classList.remove('active'));
+  populateProjectNameDropdown();
+  document.getElementById('exp-project-select').value = '';
+  document.getElementById('exp-notes').value          = '';
+  document.getElementById('mileage-fields').style.display     = 'none';
+  document.getElementById('perdiem-fields').style.display     = 'none';
+  document.getElementById('amount-fields').style.display      = 'none';
+  document.getElementById('project-required-star').style.display = 'none';
+  document.getElementById('mileage-calc-preview').style.display  = 'none';
+  document.getElementById('perdiem-total-preview').style.display = 'none';
+  document.getElementById('pd-rates-display').style.display       = 'none';
+  document.getElementById('pd-toggle-meals').classList.remove('active');
+  document.getElementById('pd-toggle-incidentals').classList.remove('active');
+  expClearFile();
+  document.getElementById('exp-receipt-upload').style.display = 'none';
+  openModal('expense-modal');
+  setTimeout(() => document.getElementById('exp-name').focus(), 60);
+}
+
+function openEditExpense(itemId) {
+  const e = expenses.find(x => x.itemId === itemId);
+  if (!e) return;
+  editingItemId = itemId;
+  document.getElementById('expense-modal-title').textContent = 'Edit Expense';
+  document.getElementById('expense-save-btn').textContent    = '✓ Save Changes';
+  document.getElementById('exp-name').value     = e.employeeName;
+  document.getElementById('exp-type').value     = e.expenseType;
+  document.getElementById('exp-desc').value     = e.description;
+  document.getElementById('exp-miles').value    = e.miles  || '';
+  document.getElementById('exp-odo-start').value = e.odometerStart || '';
+  document.getElementById('exp-odo-end').value   = e.odometerEnd   || '';
+  document.getElementById('exp-rate').value     = e.rate   || currentMileageRate;
+  document.getElementById('exp-amount').value   = e.expenseType === 'Out of Pocket' ? e.amount : '';
+  document.getElementById('exp-notes').value    = e.notes;
+  // Restore project name
+  populateProjectNameDropdown();
+  const projSel = document.getElementById('exp-project-select');
+  projSel.value = (e.projectCode && projectNames.includes(e.projectCode)) ? e.projectCode : '';
+
+  // Restore date
+  document.getElementById('exp-date').value = e.expenseDate && !e.expenseDate.includes('/') ? e.expenseDate : '';
+
+  // Restore per diem fields
+  populateLocationDropdown();
+  if (e.expenseType === 'Per Diem' && e.perDiem) {
+    document.getElementById('exp-pd-location').value = e.perDiem.locationId || '';
+    const mBtn = document.getElementById('pd-toggle-meals');
+    const iBtn = document.getElementById('pd-toggle-incidentals');
+    e.perDiem.includeMeals       ? mBtn.classList.add('active') : mBtn.classList.remove('active');
+    e.perDiem.includeIncidentals ? iBtn.classList.add('active') : iBtn.classList.remove('active');
+    onLocationChange();
+  } else {
+    document.getElementById('exp-pd-location').value = '';
+    document.getElementById('pd-toggle-meals').classList.remove('active');
+    document.getElementById('pd-toggle-incidentals').classList.remove('active');
+    document.getElementById('pd-rates-display').style.display = 'none';
+  }
+
+  onTypeChange();
+  // Show existing receipt link if OOP
+  if (e.expenseType === 'Out of Pocket' && e.receiptUrl) {
+    document.getElementById('exp-receipt-upload').style.display = 'block';
+    document.getElementById('exp-upload-zone').style.display = 'none';
+    document.getElementById('exp-upload-preview').style.display = 'none';
+    const existing = document.getElementById('exp-existing-receipt');
+    if (existing) { existing.style.display = 'flex'; existing.querySelector('a').href = e.receiptUrl; }
+  } else {
+    const existing = document.getElementById('exp-existing-receipt');
+    if (existing) existing.style.display = 'none';
+  }
+  setExpBillable(e.billable);
+  if (e.expenseType === 'Mileage') calcMileage();
+  openModal('expense-modal');
+}
+
+function onTypeChange() {
+  const type = document.getElementById('exp-type').value;
+  document.getElementById('mileage-fields').style.display  = type === 'Mileage'       ? 'block' : 'none';
+  document.getElementById('perdiem-fields').style.display  = type === 'Per Diem'      ? 'block' : 'none';
+  document.getElementById('amount-fields').style.display   = type === 'Out of Pocket' ? 'block' : 'none';
+  document.getElementById('exp-receipt-upload').style.display = type === 'Out of Pocket' ? 'block' : 'none';
+  if (type === 'Mileage')  calcMileage();
+  if (type === 'Per Diem') { populateLocationDropdown(); calcPerDiem(); }
+}
+
+function onLocationChange() {
+  const sel = document.getElementById('exp-pd-location');
+  const loc = perDiemLocations.find(l => l.itemId === sel.value);
+  const ratesDiv = document.getElementById('pd-rates-display');
+  if (loc) {
+    document.getElementById('pd-meals-rate-label').textContent        = fmtCurrency(loc.mealsRate);
+    document.getElementById('pd-incidentals-rate-label').textContent  = fmtCurrency(loc.incidentalsRate);
+    ratesDiv.style.display = 'flex';
+  } else {
+    ratesDiv.style.display = 'none';
+  }
+  calcPerDiem();
+}
+
+function togglePdItem(type) {
+  const btn = document.getElementById(`pd-toggle-${type}`);
+  btn.classList.toggle('active');
+  calcPerDiem();
+}
+
+function calcPerDiem() {
+  const sel  = document.getElementById('exp-pd-location');
+  const loc  = perDiemLocations.find(l => l.itemId === sel.value);
+  const days = 1;
+  const includeMeals       = document.getElementById('pd-toggle-meals').classList.contains('active');
+  const includeIncidentals = document.getElementById('pd-toggle-incidentals').classList.contains('active');
+  const preview = document.getElementById('perdiem-total-preview');
+  if (!loc || (!includeMeals && !includeIncidentals)) { preview.style.display = 'none'; return; }
+  const mealsAmt       = includeMeals       ? loc.mealsRate       * days : 0;
+  const incidentalsAmt = includeIncidentals ? loc.incidentalsRate * days : 0;
+  const total = mealsAmt + incidentalsAmt;
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    <div style="margin-bottom:6px;font-size:14px">Total Per Diem: ${fmtCurrency(total)}</div>
+    <div style="font-size:12px;font-weight:400;display:flex;gap:16px;flex-wrap:wrap">
+      ${includeMeals       ? `<span>🍽 Meals: <strong>${fmtCurrency(mealsAmt)}</strong></span>` : ''}
+      ${includeIncidentals ? `<span>📋 Incidentals: <strong>${fmtCurrency(incidentalsAmt)}</strong></span>` : ''}
+    </div>`;
+}
+
+
+function setExpBillable(val) {
+  expBillableValue = val;
+  ['yes','no','unsure'].forEach(c => document.getElementById('exp-toggle-'+c).classList.remove('active'));
+  const map = { 'Billable': 'yes', 'Not Billable': 'no', 'Unsure': 'unsure' };
+  if (map[val]) document.getElementById('exp-toggle-'+map[val]).classList.add('active');
+  document.getElementById('project-required-star').style.display = val === 'Billable' ? '' : 'none';
+}
+
+function calcMileage() {
+  const miles = parseFloat(document.getElementById('exp-miles').value) || 0;
+  const rate  = parseFloat(document.getElementById('exp-rate').value)  || currentMileageRate;
+  const preview = document.getElementById('mileage-calc-preview');
+  if (miles > 0) {
+    preview.style.display = 'block';
+    preview.textContent   = `Reimbursement: ${fmtCurrency(miles * rate)}  (${miles} mi × $${rate.toFixed(3)}/mi)`;
+  } else preview.style.display = 'none';
+  document.getElementById('mileage-rate-note').textContent = `Rate: $${currentMileageRate.toFixed(3)}/mi (2025 IRS standard)`;
+}
+
+function calcOdometer() {
+  const start = parseFloat(document.getElementById('exp-odo-start').value);
+  const end   = parseFloat(document.getElementById('exp-odo-end').value);
+  if (!isNaN(start) && !isNaN(end) && end > start) {
+    document.getElementById('exp-miles').value = (end - start).toFixed(1);
+    calcMileage();
+  }
+}
+
+async function saveExpense() {
+  const name     = document.getElementById('exp-name').value.trim();
+  const type     = document.getElementById('exp-type').value;
+  const desc     = document.getElementById('exp-desc').value.trim();
+  const billable = expBillableValue;
+  const userNotes = document.getElementById('exp-notes').value.trim();
+  const project = document.getElementById('exp-project-select').value;
+
+  // Collect date
+  let expenseDate;
+  expenseDate = document.getElementById('exp-date').value;
+  if (!expenseDate) { shakeInput('exp-date'); return; }
+
+  if (!name)     { shakeInput('exp-name');    return; }
+  if (!type)     { shakeInput('exp-type');    return; }
+  if (!desc)     { shakeInput('exp-desc');    return; }
+  if (!billable) { shakeInput('exp-toggle-yes');return; }
+  if (billable === 'Billable' && !project) {
+    shakeInput('exp-project-select'); return;
+  }
+
+  let amount = 0, miles = 0, rate = currentMileageRate, notesField = userNotes;
+
+  if (type === 'Mileage') {
+    miles  = parseFloat(document.getElementById('exp-miles').value) || 0;
+    rate   = currentMileageRate;
+    if (miles <= 0) { shakeInput('exp-miles'); return; }
+    amount = parseFloat((miles * currentMileageRate).toFixed(2));
+  } else if (type === 'Per Diem') {
+    const locationId = document.getElementById('exp-pd-location').value;
+    const loc = perDiemLocations.find(l => l.itemId === locationId);
+    if (!loc) { shakeInput('exp-pd-location'); return; }
+    const days = 1;
+    const includeMeals       = document.getElementById('pd-toggle-meals').classList.contains('active');
+    const includeIncidentals = document.getElementById('pd-toggle-incidentals').classList.contains('active');
+    if (!includeMeals && !includeIncidentals) { toast('Select at least Meals or Incidentals', 'error'); return; }
+    const mealsAmt       = includeMeals       ? parseFloat((loc.mealsRate       * days).toFixed(2)) : 0;
+    const incidentalsAmt = includeIncidentals ? parseFloat((loc.incidentalsRate * days).toFixed(2)) : 0;
+    amount = parseFloat((mealsAmt + incidentalsAmt).toFixed(2));
+    const pdData = JSON.stringify({ locationId, locationName: loc.name, days, mealsRate: loc.mealsRate, incidentalsRate: loc.incidentalsRate, includeMeals, includeIncidentals });
+    notesField = `__pd__${pdData}${userNotes ? '||' + userNotes : ''}`;
+  } else {
+    amount = parseFloat(document.getElementById('exp-amount').value) || 0;
+    if (amount <= 0) { shakeInput('exp-amount'); return; }
+    if (type === 'Out of Pocket' && !expSelectedFile) { shakeInput('exp-upload-zone'); toast('Please attach a receipt image', 'error'); return; }
+  }
+
+  if (isSaving) return;
+  isSaving = true;
+  const btn = document.getElementById('expense-save-btn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    // Upload receipt image first if Out of Pocket
+    let receiptUrl = '';
+    if (type === 'Out of Pocket' && expSelectedFile) {
+      btn.textContent = 'Uploading receipt…';
+      const ext = expSelectedFile.name.split('.').pop();
+      const fileName = `exp-${Date.now()}.${ext}`;
+      receiptUrl = await uploadExpenseReceipt(expSelectedFile, fileName);
+    }
+
+    const fields = {
+      Title: `exp-${Date.now()}`, EmployeeName: name, EmployeeEmail: currentUser.email,
+      ExpenseDate: expenseDate, ExpenseType: type, Description: desc, Miles: miles, Rate: rate,
+      Amount: amount, Billable: billable, ProjectCode: project, Notes: notesField, SubmittedAt: Date.now(),
+      OdometerStart: parseFloat(document.getElementById('exp-odo-start').value) || 0,
+      OdometerEnd:   parseFloat(document.getElementById('exp-odo-end').value)   || 0
+    };
+    if (receiptUrl) fields.ReceiptUrl = receiptUrl;
+
+    if (editingItemId) {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.expenseListName)}/items/${editingItemId}`,
+        { method: 'PATCH', body: JSON.stringify({ fields }) });
+      toast('Expense updated', 'success');
+    } else {
+      fields.IsBilled = false; fields.IsProcessed = false;
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.expenseListName)}/items`,
+        { method: 'POST', body: JSON.stringify({ fields }) });
+      toast(`Submitted: ${fmtCurrency(amount)}`, 'success');
+    }
+    closeModal('expense-modal');
+    await refreshData();
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    isSaving = false; btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+function openDeleteExpense(itemId) {
+  const e = expenses.find(x => x.itemId === itemId);
+  if (!e) return;
+  deleteItemId = itemId;
+  document.getElementById('delete-modal-msg').innerHTML =
+    `Delete <strong>${escHtml(e.description)}</strong> by <strong>${escHtml(e.employeeName)}</strong> on ${fmtDate(e.expenseDate)} for ${fmtCurrency(e.amount)}? This cannot be undone.`;
+  openModal('delete-modal');
+}
+
+async function confirmDelete() {
+  if (isDeletingExpense) return;
+  isDeletingExpense = true;
+  const btn = document.getElementById('delete-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.expenseListName)}/items/${deleteItemId}`,
+      { method: 'DELETE' });
+    closeModal('delete-modal');
+    toast('Expense deleted', 'info');
+    await refreshData();
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+  finally {
+    isDeletingExpense = false;
+    if (btn) { btn.disabled = false; btn.textContent = '🗑 Yes, Delete'; }
+  }
+}
+
+// ── Modal helpers ─────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); if (id === 'expense-modal') expenseFormDirty = false; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); if (id === 'expense-modal') expenseFormDirty = false; }
+
+// Styled confirmation dialog (replaces native confirm()).
+function showConfirm(message, onConfirm, opts = {}) {
+  const msg    = document.getElementById('confirm-modal-msg');
+  const title  = document.getElementById('confirm-modal-title');
+  const okBtn  = document.getElementById('confirm-modal-ok');
+  title.textContent = opts.title || 'Confirm';
+  msg.innerHTML = message; // callers pass escaped/known-safe HTML
+  okBtn.textContent = opts.confirmLabel || 'Confirm';
+  okBtn.className = 'btn-confirm' + (opts.danger ? ' danger' : '');
+  const fresh = okBtn.cloneNode(true);
+  okBtn.parentNode.replaceChild(fresh, okBtn);
+  fresh.addEventListener('click', () => { closeModal('confirm-modal'); onConfirm(); });
+  openModal('confirm-modal');
+  setTimeout(() => fresh.focus(), 60);
+}
+// Backdrop click closes ONLY confirmation-style modals; form modals ignore it.
+const FORM_MODALS = ['expense-modal', 'location-modal', 'project-modal', 'settings-modal'];
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  if (FORM_MODALS.includes(el.id)) return;
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+// Escape closes the topmost open modal.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const open = [...document.querySelectorAll('.modal-overlay.open')];
+  if (open.length) open[open.length - 1].classList.remove('open');
+});
+
+// ── Tabs ──────────────────────────────────────────────────
+const TABS = ['portal', 'log', 'locations', 'projects'];
+function showTab(tab) {
+  TABS.forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = tab === t ? 'block' : 'none';
+    const navBtn = document.getElementById(`nav-${t}`);
+    navBtn.classList.toggle('active', tab === t);
+    if (tab === t) navBtn.setAttribute('aria-current', 'page');
+    else navBtn.removeAttribute('aria-current');
+  });
+  if (tab === 'log')       { renderLog(); }
+  if (tab === 'locations') { renderLocations(); }
+  if (tab === 'projects')  { renderProjects(); }
+  history.replaceState(null, '', '#' + tab);
+}
+
+// ── Screens ───────────────────────────────────────────────
+function showSignIn()  { document.getElementById('signin-screen').style.display = 'flex'; document.getElementById('loading-screen').style.display = 'none'; }
+function showLoading(msg) { document.getElementById('signin-screen').style.display = 'none'; document.getElementById('loading-screen').style.display = 'flex'; document.getElementById('loading-msg').textContent = msg || 'Loading…'; }
+function hideScreens() { document.getElementById('signin-screen').style.display = 'none'; document.getElementById('loading-screen').style.display = 'none'; }
+
+function startPolling() {
+  clearInterval(pollTimer);
+  if (document.hidden) return; // paused while tab is hidden
+  pollTimer = setInterval(refreshData, CONFIG.pollInterval);
+}
+function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { stopPolling(); }
+  else if (siteId) { refreshData(); startPolling(); }
+});
+
+// ── App Switcher ──────────────────────────────────────────
+function toggleAppsMenu(e) {
+  e.stopPropagation();
+  const dd  = document.getElementById('apps-dropdown');
+  const btn = document.getElementById('apps-btn');
+  const open = dd.style.display === 'none';
+  dd.style.display = open ? 'block' : 'none';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) { const first = dd.querySelector('.app-entry'); if (first) setTimeout(() => first.focus(), 0); }
+}
+function closeAppsMenu() {
+  const dd  = document.getElementById('apps-dropdown');
+  const btn = document.getElementById('apps-btn');
+  if (dd) dd.style.display = 'none';
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('click', closeAppsMenu);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const dd = document.getElementById('apps-dropdown');
+    if (dd && dd.style.display === 'block') { closeAppsMenu(); document.getElementById('apps-btn').focus(); }
+  }
+});
+// ── Projects CRUD ─────────────────────────────────────────
+function renderProjects() {
+  const el = document.getElementById('projects-content');
+  const rows = projectItems.length === 0
+    ? `<tr><td colspan="2" class="empty-state">No projects yet. Click "Add Project" to get started.</td></tr>`
+    : projectItems.map(p => `
+      <tr>
+        <td class="loc-name">${escHtml(p.name)}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn-edit-row edit" onclick="openEditProject('${p.itemId}')">Edit</button>
+            <button class="btn-edit-row delete" onclick="deleteProject('${p.itemId}')" title="Delete">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="loc-header">
+      <div>
+        <h2>Projects</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px">Manage the shared project list used in both the Expense Tracker and Credit Card Tracker.</p>
+      </div>
+      <button class="btn-add-loc" onclick="openAddProject()">+ Add Project</button>
+    </div>
+    <div class="loc-table-wrap">
+      <table class="loc-table">
+        <thead><tr><th>Project Name</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function openAddProject() {
+  editingProjectId = null;
+  document.getElementById('project-modal-title').textContent = 'Add Project';
+  document.getElementById('project-save-btn').textContent    = '💾 Save Project';
+  document.getElementById('proj-name').value = '';
+  openModal('project-modal');
+  setTimeout(() => document.getElementById('proj-name').focus(), 60);
+}
+
+function openEditProject(itemId) {
+  const p = projectItems.find(x => x.itemId === itemId);
+  if (!p) return;
+  editingProjectId = itemId;
+  document.getElementById('project-modal-title').textContent = 'Edit Project';
+  document.getElementById('project-save-btn').textContent    = '✓ Save Changes';
+  document.getElementById('proj-name').value = p.name;
+  openModal('project-modal');
+  setTimeout(() => document.getElementById('proj-name').focus(), 60);
+}
+
+let isSavingLocation = false;
+let isSavingProject = false;
+async function saveProject() {
+  const name = document.getElementById('proj-name').value.trim();
+  if (!name) { shakeInput('proj-name'); return; }
+  if (isSavingProject) return;
+  isSavingProject = true;
+  const btn = document.getElementById('project-save-btn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    if (editingProjectId) {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.projectNamesListName)}/items/${editingProjectId}`,
+        { method: 'PATCH', body: JSON.stringify({ fields: { Title: name } }) });
+      toast('Project updated', 'success');
+    } else {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.projectNamesListName)}/items`,
+        { method: 'POST', body: JSON.stringify({ fields: { Title: name } }) });
+      toast('Project added', 'success');
+    }
+    closeModal('project-modal');
+    await loadProjectNames();
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    isSavingProject = false; btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+function deleteProject(itemId) {
+  const p = projectItems.find(x => x.itemId === itemId);
+  if (!p) return;
+  showConfirm(`Delete project <strong>${escHtml(p.name)}</strong>? This cannot be undone.`, async () => {
+    if (deletingProjectId === itemId) return;
+    deletingProjectId = itemId;
+    try {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.projectNamesListName)}/items/${itemId}`,
+        { method: 'DELETE' });
+      toast('Project deleted', 'info');
+      await loadProjectNames();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+    finally { deletingProjectId = null; }
+  }, { title: 'Delete Project', confirmLabel: 'Delete', danger: true });
+}
+
+// ── Utilities ─────────────────────────────────────────────
+// LOCAL date — never toISOString() for calendar dates (Alaska = UTC-9!)
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function fmtSingleDate(iso) {
+  if (!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return new Date(+y,+m-1,+d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  if (iso.includes('/')) {
+    const [from, to] = iso.split('/');
+    return `${fmtSingleDate(from)} – ${fmtSingleDate(to)}`;
+  }
+  return fmtSingleDate(iso);
+}
+function expStartDate(e) {
+  return e.expenseDate.includes('/') ? e.expenseDate.split('/')[0] : e.expenseDate;
+}
+function fmtCurrency(n) { return '$' + (n||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function typeClass(t) { return t==='Mileage'?'type-mileage':t==='Per Diem'?'type-perdiem':t==='Out of Pocket'?'type-oop':''; }
+function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function shakeInput(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); el.focus();
+  el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+}
+let toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', type === 'error' ? 6500 : 3500);
+}
+const showToast = toast;
+
+let expSelectedFile = null;
+function expHandleFileSelect(e) {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 10*1024*1024) { toast('Max 10 MB', 'error'); return; }
+  expSelectedFile = f;
+  document.getElementById('exp-upload-zone').style.display = 'none';
+  document.getElementById('exp-upload-preview').style.display = 'flex';
+  document.getElementById('exp-upload-filename').textContent = f.name;
+}
+function expClearFile() {
+  expSelectedFile = null;
+  const fileInput = document.getElementById('exp-receipt-file');
+  if (fileInput) fileInput.value = '';
+  const zone = document.getElementById('exp-upload-zone');
+  const preview = document.getElementById('exp-upload-preview');
+  if (zone) zone.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+}
+
+// ── Unsaved-changes guard ─────────────────────────────────
+let expenseFormDirty = false;
+function markExpenseDirty() { expenseFormDirty = true; }
+(function wireDirtyTracking() {
+  const modal = document.getElementById('expense-modal');
+  if (modal) modal.addEventListener('input', markExpenseDirty);
+})();
+window.addEventListener('beforeunload', e => {
+  const open = document.getElementById('expense-modal').classList.contains('open');
+  if (open && expenseFormDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// Wheel-guard: scrolling over a focused number input must not change its value.
+document.addEventListener('wheel', e => {
+  if (e.target instanceof HTMLInputElement && e.target.type === 'number' && document.activeElement === e.target) {
+    e.target.blur();
+  }
+}, { passive: true });
+
+// Collapse the filters panel by default on small screens (§12).
+if (window.matchMedia('(max-width:640px)').matches) {
+  const fd = document.getElementById('filters-details');
+  if (fd) fd.removeAttribute('open');
+}
+
+window.addEventListener('load', initMsal);
+
+/* ── Settings ── */
+let mileageConfigItemId = null; // SharePoint item ID for AppConfig/MileageRate row
+
+function openSettings() {
+  document.getElementById('settings-rate-input').value = currentMileageRate.toFixed(3);
+  document.getElementById('settings-rate-status').textContent = '';
+  openModal('settings-modal');
+}
+
+async function saveSettings() {
+  const val = parseFloat(document.getElementById('settings-rate-input').value);
+  if (isNaN(val) || val <= 0 || val > 5) {
+    document.getElementById('settings-rate-status').textContent = 'Enter a valid rate (e.g. 0.700)';
+    document.getElementById('settings-rate-status').style.color = 'var(--red)';
+    return;
+  }
+  document.getElementById('settings-rate-status').textContent = 'Saving…';
+  document.getElementById('settings-rate-status').style.color = 'var(--muted)';
+  try {
+    if (mileageConfigItemId) {
+      await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.mileageConfigListName)}/items/${mileageConfigItemId}`,
+        { method: 'PATCH', body: JSON.stringify({ fields: { ConfigValue: String(val) } }) });
+    } else {
+      const res = await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.mileageConfigListName)}/items`,
+        { method: 'POST', body: JSON.stringify({ fields: { Title: 'MileageRate', ConfigValue: String(val) } }) });
+      mileageConfigItemId = res.id;
+    }
+    currentMileageRate = val;
+    document.getElementById('settings-rate-status').textContent = '✓ Saved';
+    document.getElementById('settings-rate-status').style.color = 'var(--green)';
+    document.getElementById('mileage-rate-note').textContent = `Rate: $${currentMileageRate.toFixed(3)}/mi (2025 IRS standard)`;
+    setTimeout(() => closeModal('settings-modal'), 900);
+  } catch(e) {
+    document.getElementById('settings-rate-status').textContent = 'Save failed: ' + e.message;
+    document.getElementById('settings-rate-status').style.color = 'var(--red)';
+  }
+}
+</script>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal" style="width:420px" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h3 id="settings-modal-title" style="font-size:16px;font-weight:800;color:var(--brand)">⚙️ Settings</h3>
+      <button aria-label="Close" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);width:40px;height:40px" onclick="closeModal('settings-modal')">✕</button>
+    </div>
+    <div style="background:var(--bg);border-radius:10px;padding:16px 18px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:12px">Mileage Reimbursement</div>
+      <div class="form-group" style="margin-bottom:0">
+        <label style="font-size:13px" for="settings-rate-input">IRS Standard Mileage Rate ($/mi)</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span style="font-size:15px;color:var(--muted);font-weight:700">$</span>
+          <input type="number" id="settings-rate-input" min="0.01" max="5" step="0.001" inputmode="decimal"
+            style="width:110px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;font-weight:700"
+            placeholder="0.700" />
+          <span style="font-size:12px;color:var(--muted)">/mile</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">
+          2025 IRS standard rate: $0.700/mi &nbsp;·&nbsp; <a href="https://www.irs.gov/tax-professionals/standard-mileage-rates" target="_blank" style="color:var(--brand-light)">IRS rates page ↗</a>
+        </div>
+      </div>
+    </div>
+    <div id="settings-rate-status" style="font-size:12px;min-height:18px;margin-bottom:10px"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('settings-modal')">Cancel</button>
+      <button class="btn-confirm" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

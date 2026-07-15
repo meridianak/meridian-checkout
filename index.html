@@ -1,2385 +1,319 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Meridian Management — Device Checkout</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a5c">
+<title>Home · Meridian Tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a020'/%3E%3Ctext x='32' y='46' font-family='Segoe UI,Arial,sans-serif' font-size='38' font-weight='900' text-anchor='middle' fill='%231a3a5c'%3EM%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --brand:#1a3a5c; --brand-light:#2a5a8c; --brand-dark:#132c47;
+    --accent:#e8a020; --accent-dark:#c8871a;
+    --bg:#f0f4f8; --surface:#ffffff; --border:#d0dae6; --border-strong:#b6c5d6;
+    --text:#1e2b3a; --muted:#5a6c83;
+    --green:#22c55e; --green-dark:#15803d; --green-bg:#dcfce7; --green-text:#166534;
+    --red:#ef4444; --red-dark:#dc2626; --red-bg:#fee2e2; --red-text:#991b1b;
+    --amber:#f59e0b; --amber-bg:#fef3c7; --amber-text:#92400e;
+    --blue:#3b82f6; --blue-dark:#1d4ed8; --blue-bg:#dbeafe;
+    --purple:#8b5cf6; --purple-dark:#6d28d9; --purple-bg:#ede9fe;
+    --shadow:0 2px 12px rgba(26,58,92,.10);
+    --shadow-lg:0 20px 60px rgba(15,30,50,.28);
+    --radius:12px; --radius-sm:8px; --radius-lg:16px;
+    --focus-ring:0 0 0 3px rgba(42,90,140,.25);
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
 
-  <!-- Microsoft Authentication Library -->
-  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+  /* ── Header ── */
+  header {
+    background: var(--brand);
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    color: #fff;
+    padding: 0 clamp(14px, 4vw, 32px);
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900; color: var(--brand);
+    flex-shrink: 0;
+  }
+  .logo h1 { font-size: 17px; font-weight: 700; line-height: 1.2; }
+  .logo p  { font-size: 11px; color: rgba(255,255,255,.72); }
+  .header-tag {
+    background: rgba(255,255,255,.12);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .4px;
+  }
 
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --brand:       #1a3a5c;
-      --brand-light: #2a5a8c;
-      --accent:      #e8a020;
-      --bg:          #f0f4f8;
-      --surface:     #ffffff;
-      --border:      #d0dae6;
-      --text:        #1e2b3a;
-      --muted:       #6b7c93;
-      --green:       #22c55e;
-      --green-bg:    #dcfce7;
-      --red:         #ef4444;
-      --red-bg:      #fee2e2;
-      --shadow:      0 2px 12px rgba(26,58,92,.10);
-      --radius:      10px;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg); color: var(--text); min-height: 100vh;
-    }
+  /* ── Main ── */
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 48px;
+  }
 
-    /* ── Full-screen overlays ── */
-    .screen {
-      position: fixed; inset: 0; z-index: 500;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 18px; padding: 24px; text-align: center;
-    }
-    #signin-screen { background: var(--brand); color: #fff; }
-    #loading-screen { background: var(--brand); color: #fff; }
+  /* ── Welcome banner ── */
+  .welcome {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+    border-radius: var(--radius-lg);
+    padding: 32px 36px;
+    color: #fff;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .welcome h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .welcome p  { font-size: 14px; opacity: .8; line-height: 1.5; max-width: 480px; }
+  .welcome-badge {
+    flex-shrink: 0;
+    width: 72px; height: 72px;
+    background: rgba(255,255,255,.12);
+    border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+  }
 
-    .screen-logo {
-      width: 64px; height: 64px; background: var(--accent);
-      border-radius: 16px; display: flex; align-items: center;
-      justify-content: center; font-size: 32px; font-weight: 900; color: var(--brand);
-      margin-bottom: 4px;
-    }
-    .screen h2 { font-size: 22px; font-weight: 800; }
-    .screen p  { font-size: 14px; opacity: .7; max-width: 320px; line-height: 1.5; }
-    .screen .sub { font-size: 12px; opacity: .5; }
+  /* ── Section label ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
 
-    /* Microsoft sign-in button */
-    .ms-btn {
-      display: flex; align-items: center; gap: 12px;
-      background: #fff; color: #1a1a1a;
-      border: none; border-radius: 4px;
-      padding: 12px 20px; font-size: 15px; font-weight: 600;
-      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2);
-      transition: box-shadow .15s; margin-top: 8px;
-    }
-    .ms-btn:hover { box-shadow: 0 4px 16px rgba(0,0,0,.3); }
-    .ms-btn svg { flex-shrink: 0; }
+  /* ── App grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+  .app-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 22px 22px 20px;
+    text-decoration: none;
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .app-card:hover, .app-card:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(26,58,92,.14);
+    border-color: var(--brand-light);
+  }
+  .app-card:hover .card-arrow, .app-card:focus-visible .card-arrow { color: var(--brand); transform: translateX(3px); }
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .card-icon {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .card-arrow {
+    font-size: 16px;
+    color: var(--border-strong);
+    transition: color .12s ease, transform .12s ease;
+    margin-top: 4px;
+  }
+  .app-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 5px;
+  }
+  .app-card p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .card-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0 12px;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-meta span { color: var(--brand-light); font-weight: 600; }
 
-    .spinner {
-      width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.25);
-      border-top-color: var(--accent); border-radius: 50%;
-      animation: spin .8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #loading-msg { font-size: 13px; opacity: .6; }
+  /* ── Quick links ── */
+  .quick-links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .quick-link {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    min-height: 44px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--brand);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 1px 4px rgba(26,58,92,.06);
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .quick-link:hover {
+    border-color: var(--brand-light);
+    box-shadow: 0 2px 8px rgba(26,58,92,.12);
+  }
 
-    /* ── Header ── */
-    header {
-      background: var(--brand); color: #fff;
-      padding: 0 32px; height: 64px;
-      display: flex; align-items: center; justify-content: space-between;
-      box-shadow: 0 2px 8px rgba(0,0,0,.25);
-      position: sticky; top: 0; z-index: 100;
-    }
-    .logo { display: flex; align-items: center; gap: 12px; }
-    .logo-icon {
-      width: 38px; height: 38px; background: var(--accent);
-      border-radius: 8px; display: flex; align-items: center;
-      justify-content: center; font-size: 20px; font-weight: 900; color: var(--brand);
-    }
-    .logo h1 { font-size: 17px; font-weight: 700; }
-    .logo p  { font-size: 11px; opacity: .7; }
-    .header-right { display: flex; align-items: center; gap: 14px; }
-    .header-meta  { font-size: 12px; opacity: .7; text-align: right; }
-    #live-clock   { font-size: 14px; font-weight: 600; opacity: 1; }
-    .user-chip {
-      background: rgba(255,255,255,.12); border-radius: 20px;
-      padding: 5px 12px 5px 8px; display: flex; align-items: center; gap: 7px;
-      font-size: 12px; font-weight: 600; cursor: pointer; border: none; color: #fff;
-      transition: background .15s;
-    }
-    .user-chip:hover { background: rgba(255,255,255,.22); }
-    .user-avatar {
-      width: 24px; height: 24px; border-radius: 50%;
-      background: var(--accent); color: var(--brand);
-      font-size: 11px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center;
-    }
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
 
-    /* ── App Switcher ── */
-    .app-switcher { position: relative; }
-    .apps-btn {
-      background: rgba(255,255,255,.12); border: none; border-radius: 8px;
-      color: #fff; padding: 6px 12px; font-size: 13px; font-weight: 700;
-      cursor: pointer; display: flex; align-items: center; gap: 6px;
-      transition: background .15s;
-    }
-    .apps-btn:hover { background: rgba(255,255,255,.22); }
-    .apps-dropdown {
-      display: none; position: absolute; top: calc(100% + 10px); right: 0;
-      background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.22);
-      min-width: 240px; overflow: hidden; z-index: 300;
-      animation: pop .15s ease;
-    }
-    .apps-dropdown.open { display: block; }
-    .apps-dropdown-header {
-      padding: 10px 16px; font-size: 10px; font-weight: 800; text-transform: uppercase;
-      letter-spacing: .7px; color: var(--muted); border-bottom: 1px solid var(--border);
-    }
-    .app-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 11px 16px; text-decoration: none; color: var(--text);
-      transition: background .12s;
-    }
-    .app-item:hover { background: var(--bg); }
-    .app-item-icon {
-      width: 36px; height: 36px; background: var(--accent); border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 900; color: var(--brand); flex-shrink: 0;
-    }
-    .app-item-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
-    .app-item-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
-
-    /* ── Refresh bar ── */
-    #refresh-bar {
-      background: #e8f4fd; border-bottom: 1px solid #bee3f8;
-      padding: 6px 32px; display: flex; align-items: center;
-      justify-content: space-between; font-size: 12px; color: #2a6496;
-    }
-    #refresh-bar button {
-      background: none; border: 1px solid #2a6496; border-radius: 5px;
-      padding: 3px 10px; font-size: 11px; font-weight: 700;
-      color: #2a6496; cursor: pointer;
-    }
-    #refresh-bar button:hover { background: #2a6496; color: #fff; }
-
-    /* ── Nav Tabs ── */
-    nav {
-      background: var(--brand-light);
-      display: flex; gap: 2px; padding: 0 32px;
-    }
-    nav button {
-      background: transparent; border: none; color: rgba(255,255,255,.7);
-      padding: 10px 20px; font-size: 13px; font-weight: 600;
-      cursor: pointer; border-bottom: 3px solid transparent;
-      transition: all .2s;
-    }
-    nav button.active, nav button:hover { color: #fff; border-bottom-color: var(--accent); }
-
-    /* ── Main ── */
-    main { padding: 28px 32px; max-width: 1280px; margin: 0 auto; }
-
-    /* ── Summary Cards ── */
-    .summary-bar {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 14px; margin-bottom: 28px;
-    }
-    .stat-card {
-      background: var(--surface); border-radius: var(--radius);
-      padding: 16px 20px; box-shadow: var(--shadow);
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-    .stat-card .value { font-size: 28px; font-weight: 800; line-height: 1; }
-    .stat-card .sub   { font-size: 12px; color: var(--muted); }
-    .stat-card.available .value  { color: var(--green); }
-    .stat-card.checked-out .value{ color: var(--red); }
-    .stat-card.total .value      { color: var(--brand); }
-
-    /* ── Equipment ── */
-    .category-block { margin-bottom: 32px; }
-    .section-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px;
-    }
-    .section-header h2 {
-      font-size: 15px; font-weight: 700; color: var(--brand);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .equipment-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;
-    }
-    .device-card {
-      background: var(--surface); border-radius: var(--radius);
-      box-shadow: var(--shadow); border: 2px solid var(--border);
-      overflow: hidden; transition: transform .15s, box-shadow .15s;
-    }
-    .device-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,58,92,.13); }
-    .device-card.out     { border-color: #fca5a5; }
-    .device-card.in      { border-color: #86efac; }
-    .device-card.overdue { border-color: var(--red); border-width: 2px; background: #fff8f8; }
-    .device-card.overdue .device-card-top { background: #fff0f0; }
-    .device-card-top {
-      padding: 14px 16px 10px;
-      display: flex; align-items: flex-start; justify-content: space-between;
-    }
-    .device-name { font-size: 14px; font-weight: 700; }
-    .device-type { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .status-pill {
-      font-size: 10px; font-weight: 700; padding: 3px 9px;
-      border-radius: 20px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
-    }
-    .status-pill.available { background: var(--green-bg); color: #16a34a; }
-    .status-pill.out       { background: var(--red-bg);   color: #dc2626; }
-    .device-info {
-      padding: 0 16px 10px; font-size: 12px; color: var(--muted);
-      line-height: 1.6; min-height: 44px;
-    }
-    .device-info .info-row { display: flex; gap: 6px; }
-    .device-info .info-label { font-weight: 600; color: var(--text); min-width: 56px; }
-    .device-card-actions { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-    .btn {
-      flex: 1; padding: 8px 12px; border: none; border-radius: 7px;
-      font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s;
-    }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-checkout { background: var(--brand); color: #fff; }
-    .btn-checkout:hover:not(:disabled) { background: var(--brand-light); }
-    .btn-checkin  { background: var(--green); color: #fff; }
-    .btn-checkin:hover:not(:disabled)  { background: #16a34a; }
-    .btn-reserve  { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
-    .btn-reserve:hover:not(:disabled)  { background: var(--accent); color: #fff; }
-
-    /* ── Log Tab ── */
-    .log-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
-    .log-toolbar input, .log-toolbar select {
-      padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
-      font-size: 13px; color: var(--text); background: var(--surface); outline: none;
-    }
-    .log-toolbar input:focus, .log-toolbar select:focus { border-color: var(--brand-light); }
-    .btn-danger {
-      background: var(--red); color: #fff; padding: 8px 16px; border: none;
-      border-radius: 7px; font-weight: 700; cursor: pointer; font-size: 12px;
-    }
-    .btn-danger:hover { background: #dc2626; }
-    .log-table-wrap { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--shadow); }
-    table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 13px; }
-    thead th {
-      background: var(--brand); color: #fff; padding: 11px 14px;
-      text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
-    }
-    tbody tr { border-bottom: 1px solid var(--border); }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: #f8fafc; }
-    tbody td { padding: 10px 14px; vertical-align: middle; }
-    .log-event { font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 12px; }
-    .log-event.out { background: var(--red-bg); color: var(--red); }
-    .log-event.in  { background: var(--green-bg); color: #16a34a; }
-    .empty-state { padding: 48px; text-align: center; color: var(--muted); font-size: 14px; }
-
-    /* ── Modal ── */
-    .modal-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,.45); z-index: 200;
-      align-items: center; justify-content: center;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal {
-      background: var(--surface); border-radius: 14px; padding: 32px;
-      width: 420px; max-width: calc(100vw - 40px);
-      box-shadow: 0 20px 60px rgba(0,0,0,.25);
-      animation: pop .2s ease;
-    }
-    @keyframes pop { from { transform: scale(.92); opacity:0; } to { transform: scale(1); opacity:1; } }
-    .modal h3 { font-size: 18px; font-weight: 800; color: var(--brand); margin-bottom: 6px; }
-    .modal-device { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
-    .form-group input {
-      width: 100%; padding: 10px 13px; border: 1px solid var(--border);
-      border-radius: 8px; font-size: 14px; color: var(--text); outline: none; transition: border-color .15s;
-    }
-    .form-group input:focus { border-color: var(--brand-light); box-shadow: 0 0 0 3px rgba(42,90,140,.12); }
-    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
-    .btn-confirm {
-      flex: 1; padding: 11px; font-size: 14px; font-weight: 700;
-      border: none; border-radius: 8px; cursor: pointer;
-      background: var(--brand); color: #fff;
-    }
-    .btn-confirm:hover { background: var(--brand-light); }
-    .btn-confirm.green { background: var(--green); }
-    .btn-confirm.green:hover { background: #16a34a; }
-    .btn-confirm.danger { background: var(--red); }
-    .btn-cancel {
-      flex: 1; padding: 11px; font-size: 14px; font-weight: 700;
-      background: var(--bg); color: var(--muted);
-      border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
-    }
-    .btn-cancel:hover { background: var(--border); color: var(--text); }
-    .confirm-msg { font-size: 14px; color: var(--text); margin-bottom: 20px; line-height: 1.6; }
-
-    /* ── Toast ── */
-    #toast {
-      position: fixed; bottom: 28px; right: 28px; z-index: 600;
-      background: var(--brand); color: #fff;
-      padding: 13px 22px; border-radius: 10px; font-size: 14px; font-weight: 600;
-      box-shadow: 0 8px 24px rgba(0,0,0,.2);
-      transform: translateY(80px); opacity: 0; transition: all .3s ease;
-      pointer-events: none;
-    }
-    #toast.show { transform: translateY(0); opacity: 1; }
-    #toast.success { background: #16a34a; }
-    #toast.error   { background: var(--red); }
-    #toast.info    { background: var(--brand-light); }
-
-    /* ── Reservations & Available Tab ── */
-    .res-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:18px; flex-wrap:wrap; }
-    .res-table-wrap { overflow-x:auto; border-radius:var(--radius); box-shadow:var(--shadow); }
-    .res-section-label {
-      font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
-      color:var(--muted); margin:22px 0 10px;
-    }
-    .res-card {
-      background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
-      padding:16px 20px; margin-bottom:10px; display:flex; align-items:center; gap:16px;
-    }
-    .res-card-dates {
-      min-width:110px; text-align:center; background:var(--bg);
-      border-radius:8px; padding:8px 10px;
-    }
-    .res-date-range { font-size:12px; font-weight:700; color:var(--brand); }
-    .res-date-sub   { font-size:10px; color:var(--muted); margin-top:2px; }
-    .res-card-info  { flex:1; }
-    .res-card-device { font-weight:800; font-size:15px; }
-    .res-card-meta   { font-size:12px; color:var(--muted); margin-top:3px; }
-    .res-active-pill {
-      font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;
-      background:#fef3c7; color:#92400e; margin-left:6px;
-    }
-    .btn-cancel-res {
-      padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700;
-      border:1px solid #fca5a5; background:var(--red-bg); color:var(--red);
-      cursor:pointer; white-space:nowrap;
-    }
-    .btn-cancel-res:hover { background:var(--red); color:#fff; border-color:var(--red); }
-    .device-reservation-badge {
-      font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px;
-      background:#fef3c7; color:#92400e; margin-top:4px; display:inline-block;
-    }
-    .btn-reserve {
-      flex:1; padding:9px; font-size:13px; font-weight:700;
-      border:2px solid var(--accent); background:transparent; color:var(--accent);
-      border-radius:8px; cursor:pointer;
-    }
-    .btn-reserve:hover { background:var(--accent); color:#fff; }
-    .avail-grid { display:grid; gap:8px; }
-    .avail-row {
-      background:var(--surface); border-radius:var(--radius); padding:14px 18px;
-      display:flex; align-items:center; gap:12px; box-shadow:var(--shadow);
-    }
-    .avail-row-info { flex:1; }
-    .avail-row-name { font-weight:700; font-size:14px; }
-    .avail-row-cat  { font-size:11px; color:var(--muted); margin-top:2px; }
-    .avail-upcoming { font-size:10px; font-weight:700; color:#92400e; margin-top:3px; }
-    .avail-cat-header {
-      font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase;
-      color:var(--muted); margin:18px 0 8px; padding-left:4px;
-    }
-    .overdue-pill {
-      font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px;
-      background:var(--red-bg); color:var(--red); margin-left:6px;
-    }
-
-    /* ── Manage Tab ── */
-    .manage-toolbar {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 22px;
-    }
-    .manage-toolbar h2 { font-size: 18px; font-weight: 800; color: var(--brand); }
-    .btn-add-device {
-      padding: 9px 18px; background: var(--brand); color: #fff;
-      border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-add-device:hover { background: var(--brand-light); }
-    .manage-category { margin-bottom: 24px; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
-    .manage-cat-header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 11px 16px; background: var(--brand); color: #fff; font-weight: 700; font-size: 14px;
-    }
-    .manage-device-list { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); }
-    .manage-device-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 16px; border-bottom: 1px solid var(--border);
-    }
-    .manage-device-row:last-child { border-bottom: none; }
-    .manage-device-name { font-weight: 600; font-size: 14px; }
-    .manage-device-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 10px; }
-    .manage-device-status.out { background: var(--red-bg); color: var(--red); }
-    .manage-device-status.available { background: var(--green-bg); color: #16a34a; }
-    .manage-device-actions { display: flex; gap: 8px; }
-    .btn-sm {
-      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
-      border: 1px solid var(--border); background: var(--surface); cursor: pointer;
-      color: var(--text); white-space: nowrap;
-    }
-    .btn-sm:hover { background: var(--bg); }
-    .btn-danger-sm { color: var(--red); border-color: #fca5a5; background: var(--red-bg); }
-    .btn-danger-sm:hover { background: var(--red); color: #fff; border-color: var(--red); }
-    .manage-empty {
-      text-align: center; padding: 60px 20px; color: var(--muted);
-      background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
-    }
-    .manage-empty .empty-icon { font-size: 48px; margin-bottom: 12px; }
-    .icon-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-    .icon-option {
-      width: 36px; height: 36px; font-size: 20px; display: flex; align-items: center;
-      justify-content: center; border: 2px solid var(--border); border-radius: 8px;
-      cursor: pointer; transition: border-color .15s, background .15s;
-    }
-    .icon-option:hover    { border-color: var(--brand-light); background: var(--bg); }
-    .icon-option.selected { border-color: var(--brand); background: #e8f0fb; }
-    .icon-preview {
-      width: 44px; height: 44px; font-size: 26px; display: flex; align-items: center;
-      justify-content: center; border: 2px solid var(--border); border-radius: 10px;
-      background: var(--bg); flex-shrink: 0;
-    }
-
-    /* ── Maintenance ── */
-    .device-card.maintenance { border-color: #94a3b8; background: #f8fafc; opacity: .75; }
-    .device-card.maintenance .device-card-top { background: #f1f5f9; }
-    .status-pill.maintenance { background: #e2e8f0; color: #475569; }
-    .manage-device-status.maintenance { background: #e2e8f0; color: #475569; }
-    .btn-maintenance { background: #475569; color: #fff; }
-    .btn-maintenance:hover { background: #334155; }
-    .btn-online { background: var(--green); color: #fff; }
-    .btn-online:hover { background: #16a34a; }
-
-    /* ── Condition pills ── */
-    .cond-good    { background: #dcfce7; color: #16a34a; }
-    .cond-minor   { background: #fef3c7; color: #92400e; }
-    .cond-repair  { background: var(--red-bg); color: var(--red); }
-    .cond-pill    { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
-
-    /* ── Analytics Tab ── */
-    .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 28px; }
-    .analytics-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 22px; }
-    .analytics-card h3 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 14px; }
-    .analytics-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    .analytics-label { font-size: 13px; font-weight: 600; min-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .analytics-bar-wrap { flex: 1; background: var(--bg); border-radius: 4px; height: 12px; overflow: hidden; }
-    .analytics-bar { height: 100%; border-radius: 4px; background: var(--brand); transition: width .4s ease; }
-    .analytics-bar.accent { background: var(--accent); }
-    .analytics-bar.green  { background: var(--green); }
-    .analytics-val { font-size: 12px; font-weight: 700; color: var(--muted); min-width: 36px; text-align: right; }
-    .analytics-empty { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
-    .analytics-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 12px; margin-bottom: 28px; }
-
-    /* ── Responsive ── */
-    @media (max-width: 600px) {
-      main { padding: 16px; }
-      header { padding: 0 14px; }
-      nav { padding: 0 14px; }
-      #refresh-bar { padding: 6px 14px; }
-      .summary-bar { grid-template-columns: 1fr 1fr; }
-      .logo p { display: none; }
-      #live-clock { display: none; }
-    }
-  </style>
+  @media (max-width: 640px) {
+    .welcome { flex-direction: column; text-align: center; padding: 26px 22px; }
+    .welcome-badge { display: none; }
+    main { padding: 24px 16px 36px; }
+    .header-tag { display: none; }
+    .logo p { display: none; }
+  }
+</style>
 </head>
 <body>
-
-<!-- ═══════════════ SIGN-IN SCREEN ═══════════════ -->
-<div class="screen" id="signin-screen">
-  <div class="screen-logo">M</div>
-  <h2>Meridian Management</h2>
-  <p>Device Checkout System</p>
-  <p style="opacity:.55;font-size:13px">Sign in with your Meridian Microsoft account to continue</p>
-  <button class="ms-btn" onclick="signIn()">
-    <!-- Microsoft logo -->
-    <svg width="21" height="21" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-    </svg>
-    Sign in with Microsoft
-  </button>
-  <p class="sub" style="margin-top:4px">Use your @meridianak.com account</p>
-</div>
-
-<!-- ═══════════════ LOADING SCREEN ═══════════════ -->
-<div class="screen" id="loading-screen" style="display:none;">
-  <div class="screen-logo">M</div>
-  <div class="spinner"></div>
-  <p id="loading-msg">Loading inventory…</p>
-</div>
-
-<!-- ═══════════════ HEADER ═══════════════ -->
 <header>
   <div class="logo">
-    <div class="logo-icon">M</div>
+    <div class="logo-icon" aria-hidden="true">M</div>
     <div>
       <h1>Meridian Management</h1>
-      <p>Device Checkout</p>
+      <p>Internal Tools</p>
     </div>
   </div>
-  <div class="header-right">
-    <div class="header-meta">
-      <div id="live-clock"></div>
-      <div id="header-date"></div>
-    </div>
-    <!-- App Switcher -->
-    <div class="app-switcher" id="app-switcher">
-      <button class="apps-btn" onclick="toggleAppsDropdown(event)" title="Switch app">
-        ⊞ Apps
-      </button>
-      <div class="apps-dropdown" id="apps-dropdown">
-        <div class="apps-dropdown-header">Meridian Tools</div>
-        <a class="app-item" href="https://meridianak.github.io/receipt-tracker/" target="_blank" rel="noopener">
-          <div class="app-item-icon">M</div>
-          <div>
-            <div class="app-item-name">Receipt Tracker</div>
-            <div class="app-item-sub">Capture &amp; organize receipts</div>
-          </div>
-        </a>
-        <a class="app-item" href="https://meridianak.github.io/expense-tracker/" target="_blank" rel="noopener">
-          <div class="app-item-icon">M</div>
-          <div>
-            <div class="app-item-name">Expense Tracker</div>
-            <div class="app-item-sub">Track project expenses</div>
-          </div>
-        </a>
-        <a class="app-item" href="https://meridianak.github.io/meridian-checkout/" target="_blank" rel="noopener">
-          <div class="app-item-icon">M</div>
-          <div>
-            <div class="app-item-name">Device Checkout</div>
-            <div class="app-item-sub" style="color:var(--green);font-weight:700">● Current app</div>
-          </div>
-        </a>
-      </div>
-    </div>
-    <button class="user-chip" onclick="signOut()" title="Click to sign out">
-      <div class="user-avatar" id="user-avatar">?</div>
-      <span id="user-name">Loading…</span>
-    </button>
-  </div>
+  <div class="header-tag">Employee Portal</div>
 </header>
 
-<!-- ═══════════════ REFRESH BAR ═══════════════ -->
-<div id="refresh-bar">
-  <span>Last updated: <strong id="last-updated">—</strong> &nbsp;·&nbsp; Auto-refreshes every 30 seconds</span>
-  <button onclick="refreshData()">↻ Refresh Now</button>
-</div>
-
-<!-- ═══════════════ NAV ═══════════════ -->
-<nav>
-  <button class="active" onclick="showTab('inventory')">📦 Inventory</button>
-  <button onclick="showTab('reservations')">📅 Reservations</button>
-  <button onclick="showTab('log')">📋 Checkout Log</button>
-  <button onclick="showTab('manage')">⚙️ Manage Devices</button>
-  <button onclick="showTab('analytics')">📊 Analytics</button>
-</nav>
-
-<!-- ═══════════════ MAIN ═══════════════ -->
 <main>
-  <div id="tab-inventory">
-    <div class="summary-bar" id="summary-bar"></div>
-    <div id="equipment-sections"></div>
+  <div class="welcome">
+    <div>
+      <h2>Welcome back</h2>
+      <p>Everything in one place — log your weekly timesheet, submit expenses, track credit card receipts, and check out equipment and vehicles.</p>
+    </div>
+    <div class="welcome-badge" aria-hidden="true">🏢</div>
   </div>
 
-  <div id="tab-reservations" style="display:none;">
-    <div class="res-toolbar">
-      <h2 style="font-size:18px;font-weight:800;color:var(--brand);flex:1">Reservations</h2>
-      <button class="btn-add-device" onclick="openReserve(null)">+ New Reservation</button>
-    </div>
-    <div id="reservations-content"></div>
+  <h2 class="section-label">Applications</h2>
+  <div class="grid">
+    <a class="app-card" href="/timesheet.html">
+      <div class="card-top">
+        <div class="card-icon" aria-hidden="true">🕒</div>
+        <div class="card-arrow" aria-hidden="true">→</div>
+      </div>
+      <h3>Timesheet</h3>
+      <p>Log weekly hours by project with regular, overtime, and double-time tracking.</p>
+      <div class="card-divider"></div>
+      <div class="card-meta"><span aria-hidden="true">📅</span> <span>Hours · Projects · Submit</span></div>
+    </a>
+
+    <a class="app-card" href="/expense-tracker.html">
+      <div class="card-top">
+        <div class="card-icon" aria-hidden="true">📊</div>
+        <div class="card-arrow" aria-hidden="true">→</div>
+      </div>
+      <h3>Expense Tracker</h3>
+      <p>Log mileage, per diem, and out-of-pocket expenses for reimbursement.</p>
+      <div class="card-divider"></div>
+      <div class="card-meta"><span aria-hidden="true">💳</span> <span>Mileage · Per Diem · OOP</span></div>
+    </a>
+
+    <a class="app-card" href="/receipt-tracker.html">
+      <div class="card-top">
+        <div class="card-icon" aria-hidden="true">🧾</div>
+        <div class="card-arrow" aria-hidden="true">→</div>
+      </div>
+      <h3>Credit Card Tracker</h3>
+      <p>Submit and track company credit card receipts for approval and billing.</p>
+      <div class="card-divider"></div>
+      <div class="card-meta"><span aria-hidden="true">✅</span> <span>Submit · Approve · Bill</span></div>
+    </a>
+
+    <a class="app-card" href="/device-checkout.html">
+      <div class="card-top">
+        <div class="card-icon" aria-hidden="true">📱</div>
+        <div class="card-arrow" aria-hidden="true">→</div>
+      </div>
+      <h3>Device Checkout</h3>
+      <p>Check out equipment and vehicles, manage reservations and track usage.</p>
+      <div class="card-divider"></div>
+      <div class="card-meta"><span aria-hidden="true">🔑</span> <span>Devices · Vehicles · Reservations</span></div>
+    </a>
+
+    <a class="app-card" href="/available.html">
+      <div class="card-top">
+        <div class="card-icon" aria-hidden="true">📡</div>
+        <div class="card-arrow" aria-hidden="true">→</div>
+      </div>
+      <h3>Device Availability</h3>
+      <p>Live board of what's free right now — great for a quick glance or the shop wall.</p>
+      <div class="card-divider"></div>
+      <div class="card-meta"><span aria-hidden="true">🟢</span> <span>Live · Auto-refreshing</span></div>
+    </a>
   </div>
 
-  <div id="tab-manage" style="display:none;">
-    <div class="manage-toolbar">
-      <h2>Device Management</h2>
-      <button class="btn-add-device" onclick="openAddDevice()">+ Add Device</button>
-    </div>
-    <div id="manage-content"></div>
-  </div>
-
-  <div id="tab-analytics" style="display:none;">
-    <div id="analytics-content"></div>
-  </div>
-
-  <div id="tab-log" style="display:none;">
-    <div class="log-toolbar">
-      <input type="text" id="log-search" placeholder="🔍  Search employee or device…" style="flex:1;min-width:180px;" oninput="renderLog()">
-      <select id="log-filter" onchange="renderLog()">
-        <option value="">All Events</option>
-        <option value="out">Checked Out</option>
-        <option value="in">Checked In</option>
-      </select>
-      <button class="btn-danger" onclick="confirmClearLog()">🗑 Clear Log</button>
-    </div>
-    <div class="log-table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date &amp; Time</th>
-            <th>Event</th>
-            <th>Device</th>
-            <th>Employee</th>
-            <th>Project / Job Site</th>
-            <th>Condition</th>
-          </tr>
-        </thead>
-        <tbody id="log-body"></tbody>
-      </table>
-    </div>
+  <h2 class="section-label">Quick Links</h2>
+  <div class="quick-links">
+    <a class="quick-link" href="/timesheet.html"><span aria-hidden="true">🕒</span> My Timesheet</a>
+    <a class="quick-link" href="/expense-tracker.html#log"><span aria-hidden="true">📋</span> Expense Log</a>
+    <a class="quick-link" href="/receipt-tracker.html#log"><span aria-hidden="true">📋</span> Receipt Log</a>
+    <a class="quick-link" href="/device-checkout.html#reservations"><span aria-hidden="true">📅</span> Reservations</a>
+    <a class="quick-link" href="/available.html"><span aria-hidden="true">📡</span> Live Availability</a>
+    <a class="quick-link" href="https://meridianak.sharepoint.com" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">🔗</span> SharePoint</a>
   </div>
 </main>
 
-<!-- ═══════════════ MODALS ═══════════════ -->
-<div class="modal-overlay" id="checkout-modal">
-  <div class="modal">
-    <h3>Check Out Device</h3>
-    <div class="modal-device" id="checkout-modal-device"></div>
-    <div class="form-group">
-      <label>Employee Name *</label>
-      <input type="text" id="checkout-name" placeholder="e.g. John Smith" autocomplete="off" />
-    </div>
-    <div class="form-group">
-      <label>Project / Job Site *</label>
-      <input type="text" id="checkout-project" placeholder="e.g. Downtown Office Build" autocomplete="off" />
-    </div>
-    <div class="form-group">
-      <label>Expected Return Date *</label>
-      <input type="date" id="checkout-return" />
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('checkout-modal')">Cancel</button>
-      <button class="btn-confirm" id="checkout-confirm-btn" onclick="confirmCheckout()">✓ Confirm Checkout</button>
-    </div>
-  </div>
-</div>
-
-<!-- Reserve Modal -->
-<div class="modal-overlay" id="reserve-modal">
-  <div class="modal">
-    <h3>Reserve Device</h3>
-    <div class="modal-device" id="reserve-modal-device"></div>
-    <div class="form-group">
-      <label>Employee Name *</label>
-      <input type="text" id="reserve-name" placeholder="e.g. John Smith" autocomplete="off" />
-    </div>
-    <div class="form-group">
-      <label>Project / Job Site *</label>
-      <input type="text" id="reserve-project" placeholder="e.g. Downtown Office Build" autocomplete="off" />
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="form-group" style="margin-bottom:0">
-        <label>Start Date *</label>
-        <input type="date" id="reserve-start" />
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>End Date *</label>
-        <input type="date" id="reserve-end" />
-      </div>
-    </div>
-    <div id="reserve-conflict-msg" style="display:none;margin-top:12px;padding:10px 13px;background:var(--red-bg);color:var(--red);border-radius:8px;font-size:13px;font-weight:600;"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('reserve-modal')">Cancel</button>
-      <button class="btn-confirm" id="reserve-confirm-btn" onclick="confirmReserve()">📅 Confirm Reservation</button>
-    </div>
-  </div>
-</div>
-
-<!-- Cancel Reservation Modal -->
-<div class="modal-overlay" id="cancel-res-modal">
-  <div class="modal">
-    <h3>Cancel Reservation?</h3>
-    <p class="confirm-msg" id="cancel-res-msg"></p>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('cancel-res-modal')">Keep It</button>
-      <button class="btn-confirm danger" id="cancel-res-confirm-btn" onclick="confirmCancelReservation()">Yes, Cancel It</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="checkin-modal">
-  <div class="modal">
-    <h3>Check In Device</h3>
-    <p class="confirm-msg" id="checkin-modal-msg"></p>
-    <div class="form-group">
-      <label>Device Condition <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-      <select id="checkin-condition" style="width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);background:var(--surface);">
-        <option value="">— Not specified —</option>
-        <option value="Good">✅ Good — No issues</option>
-        <option value="Minor Issue">⚠️ Minor Issue — Small problem noted</option>
-        <option value="Needs Repair">🔴 Needs Repair — Requires attention</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Condition Notes <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-      <textarea id="checkin-notes" rows="2" placeholder="Any damage, issues, or notes about device condition…"
-        style="width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);font-family:inherit;resize:vertical;"></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('checkin-modal')">Cancel</button>
-      <button class="btn-confirm green" id="checkin-confirm-btn" onclick="confirmCheckin()">✓ Confirm Check In</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="clearlog-modal">
-  <div class="modal">
-    <h3>Clear Checkout Log?</h3>
-    <p class="confirm-msg">This permanently deletes all checkout history and cannot be undone.</p>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('clearlog-modal')">Cancel</button>
-      <button class="btn-confirm danger" onclick="clearLog()">🗑 Yes, Clear Log</button>
-    </div>
-  </div>
-</div>
-
-<!-- Device Add/Edit Modal -->
-<div class="modal-overlay" id="device-modal">
-  <div class="modal">
-    <h3 id="device-modal-title">Add Device</h3>
-    <div class="form-group">
-      <label>Device Name *</label>
-      <input type="text" id="device-modal-name" placeholder="e.g. GoPro #4" autocomplete="off" />
-    </div>
-    <div class="form-group">
-      <label>Category *</label>
-      <input type="text" id="device-modal-category" placeholder="e.g. GoPros" list="category-suggestions" autocomplete="off"
-        oninput="onCategoryInput()" />
-      <datalist id="category-suggestions"></datalist>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">
-        Pick an existing category or type a new one
-      </div>
-    </div>
-    <div class="form-group" id="icon-picker-group">
-      <label>Category Icon</label>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div class="icon-preview" id="icon-preview">📦</div>
-        <input type="text" id="device-modal-icon" placeholder="Paste any emoji…"
-          style="width:130px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:18px;text-align:center;"
-          oninput="onIconInput()" maxlength="4" />
-        <span style="font-size:11px;color:var(--muted)">Click a suggestion<br>or paste your own</span>
-      </div>
-      <div class="icon-picker" id="icon-suggestions">
-        <!-- populated by JS -->
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Serial / Asset Code <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-      <input type="text" id="device-modal-serial" placeholder="e.g. SN-00123 or Asset #42" autocomplete="off" />
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('device-modal')">Cancel</button>
-      <button class="btn-confirm" id="device-modal-btn" onclick="confirmSaveDevice()">+ Add Device</button>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Device Confirmation Modal -->
-<div class="modal-overlay" id="delete-device-modal">
-  <div class="modal">
-    <h3>Remove Device?</h3>
-    <p class="confirm-msg" id="delete-device-modal-msg"></p>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('delete-device-modal')">Cancel</button>
-      <button class="btn-confirm danger" id="delete-device-confirm-btn" onclick="deleteDevice()">🗑 Yes, Remove</button>
-    </div>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<!-- ═══════════════ SCRIPT ═══════════════ -->
-<script>
-// ════════════════════════════════════════════════════════════
-//  STEP 1: After Azure app registration, paste your Client ID
-// ════════════════════════════════════════════════════════════
-const CONFIG = {
-  clientId:                "ff1fd3ee-7baf-4d72-b978-742a29de8eab",
-  tenantId:                "4fa4840a-2a70-49e0-93ab-fd8b099bbeed",
-  siteHostname:            "meridianak.sharepoint.com",
-  checkoutsListName:       "DeviceCheckouts",
-  logListName:             "CheckoutLog",
-  deviceInventoryListName: "DeviceInventory",
-  reservationsListName:    "DeviceReservations",
-  availableListName:       "AvailableDevices",
-  pollInterval:            30000
-};
-// ════════════════════════════════════════════════════════════
-
-// ── Category icon mapping — seeded with defaults, rebuilt from SharePoint on load ──
-let CATEGORY_ICONS = {
-  'Starlinks':  '📡',
-  'DJI Drones': '🚁',
-  'GoPros':     '🎥',
-};
-// Default devices — only used for the one-time "Import Defaults" seeding
-const DEFAULT_DEVICES = [
-  { name: 'Standard Starlink #1', category: 'Starlinks',  id: 'sl-1' },
-  { name: 'Starlink #2',          category: 'Starlinks',  id: 'sl-2' },
-  { name: 'Starlink #3',          category: 'Starlinks',  id: 'sl-3' },
-  { name: 'Mini Starlink #4',     category: 'Starlinks',  id: 'sl-4' },
-  { name: 'Mini Starlink #5',     category: 'Starlinks',  id: 'sl-5' },
-  { name: 'Mini Starlink #6',     category: 'Starlinks',  id: 'sl-6' },
-  { name: 'Starlink #7',          category: 'Starlinks',  id: 'sl-7' },
-  { name: 'Drone #1',             category: 'DJI Drones', id: 'dj-1' },
-  { name: 'Drone #2',             category: 'DJI Drones', id: 'dj-2' },
-  { name: 'Drone #3',             category: 'DJI Drones', id: 'dj-3' },
-  { name: 'Drone #4',             category: 'DJI Drones', id: 'dj-4' },
-  { name: 'GoPro #1',             category: 'GoPros',     id: 'gp-1' },
-  { name: 'GoPro #2',             category: 'GoPros',     id: 'gp-2' },
-  { name: 'GoPro #3',             category: 'GoPros',     id: 'gp-3' },
-];
-let ALL_DEVICES = []; // loaded from DeviceInventory SharePoint list
-
-// ── State ─────────────────────────────────────────────────────
-let msalInstance = null;
-let siteId       = null;
-let checkouts    = {};
-let logEntries   = [];
-let reservations      = [];
-let availableItemIds  = {};  // { deviceId: sharePointItemId } for AvailableDevices list
-let activeDeviceId    = null;
-let pollTimer               = null;
-let isSaving                = false;
-let editingDeviceItemId     = null;
-let activeDeleteItemId      = null;
-let activeReservationItemId = null;
-
-// ── MSAL Init ─────────────────────────────────────────────────
-const msalConfig = {
-  auth: {
-    clientId:    CONFIG.clientId,
-    authority:   `https://login.microsoftonline.com/${CONFIG.tenantId}`,
-    redirectUri: window.location.origin + window.location.pathname
-  },
-  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: true }
-};
-
-const graphScopes = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
-
-async function initMsal() {
-  try {
-    msalInstance = new msal.PublicClientApplication(msalConfig);
-    await msalInstance.initialize();
-    showLoading('Checking authentication…');
-
-    const response = await msalInstance.handleRedirectPromise();
-    if (response) {
-      msalInstance.setActiveAccount(response.account);
-      await startApp();
-    } else {
-      const accounts = msalInstance.getAllAccounts();
-      if (accounts.length > 0) {
-        msalInstance.setActiveAccount(accounts[0]);
-        await startApp();
-      } else {
-        showSignIn();
-      }
-    }
-  } catch (e) {
-    console.error('MSAL init error:', e);
-    showSignIn();
-  }
-}
-
-function signIn() {
-  msalInstance.loginRedirect({ scopes: graphScopes });
-}
-
-function signOut() {
-  if (!confirm('Sign out of Device Checkout?')) return;
-  clearInterval(pollTimer);
-  msalInstance.logoutRedirect({ postLogoutRedirectUri: window.location.href });
-}
-
-async function getToken() {
-  const account = msalInstance.getActiveAccount();
-  try {
-    const res = await msalInstance.acquireTokenSilent({ scopes: graphScopes, account });
-    return res.accessToken;
-  } catch (e) {
-    if (e instanceof msal.InteractionRequiredAuthError) {
-      msalInstance.acquireTokenRedirect({ scopes: graphScopes, account });
-    }
-    throw e;
-  }
-}
-
-// ── Graph API helper ──────────────────────────────────────────
-async function graph(path, options = {}) {
-  const token = await getToken();
-  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    }
-  });
-  if (res.status === 204) return null;
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || `Graph API error ${res.status}`);
-  return data;
-}
-
-// ── App Start ─────────────────────────────────────────────────
-async function startApp() {
-  const account = msalInstance.getActiveAccount();
-  showLoading('Connecting to SharePoint…');
-
-  // Set user chip
-  const name = account.name || account.username.split('@')[0];
-  document.getElementById('user-name').textContent = name;
-  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-
-  try {
-    // Get SharePoint site ID
-    const site = await graph(`/sites/${CONFIG.siteHostname}`);
-    siteId = site.id;
-
-    showLoading('Loading devices…');
-    await loadDevices();
-    showLoading('Loading inventory…');
-    await refreshData();
-
-    hideScreens();
-    if (window._initialTab) { showTab(window._initialTab); window._initialTab = null; }
-    startPolling();
-  } catch (e) {
-    console.error('App start error:', e);
-    showLoading('⚠ Error loading data. Check setup guide.\n' + e.message);
-  }
-}
-
-// ── Data Operations ───────────────────────────────────────────
-async function refreshData() {
-  try {
-    // Load checkouts
-    const coRes = await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.checkoutsListName)}/items?$expand=fields&$top=100`
-    );
-    checkouts = {};
-    for (const item of (coRes.value || [])) {
-      const f = item.fields;
-      checkouts[f.Title] = {
-        employee:       f.Employee   || '',
-        project:        f.Project    || '',
-        timestamp:      f.CheckoutTimestamp || 0,
-        category:       f.Category   || '',
-        deviceName:     f.DeviceName || '',
-        expectedReturn: f.ExpectedReturn || '',
-        itemId:         item.id
-      };
-    }
-
-    // Load reservations
-    try {
-      const resRes = await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.reservationsListName)}/items?$expand=fields&$top=500`
-      );
-      const today = todayISO();
-      reservations = (resRes.value || []).map(item => {
-        const f = item.fields;
-        return {
-          id:         item.id,
-          deviceId:   ALL_DEVICES.find(d => d.name === f.DeviceName)?.id || f.DeviceName || '',
-          deviceName: f.DeviceName || '',
-          category:   f.Category   || '',
-          employee:   f.Employee   || '',
-          project:    f.Project    || '',
-          startDate:  f.StartDate  || '',
-          endDate:    f.EndDate    || '',
-          status:     f.Status     || 'active'
-        };
-      }).filter(r => r.status === 'active' && r.endDate >= today);
-
-      // Auto-checkout any reservations whose start date has arrived
-      const didAutoCheckout = await autoCheckoutReservations();
-      if (didAutoCheckout) {
-        // Reload checkouts so the new entries are reflected before rendering
-        const coRes2 = await graph(
-          `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.checkoutsListName)}/items?$expand=fields&$top=100`
-        );
-        checkouts = {};
-        for (const item of (coRes2.value || [])) {
-          const f = item.fields;
-          checkouts[f.Title] = {
-            employee:       f.Employee       || '',
-            project:        f.Project        || '',
-            timestamp:      f.CheckoutTimestamp || 0,
-            category:       f.Category       || '',
-            deviceName:     f.DeviceName     || '',
-            expectedReturn: f.ExpectedReturn || '',
-            itemId:         item.id
-          };
-        }
-        // Remove auto-checked-out reservations from the in-memory list
-        reservations = reservations.filter(r => r.status === 'active');
-      }
-    } catch (e) {
-      console.warn('DeviceReservations list not found — reservations disabled:', e.message);
-      reservations = [];
-    }
-
-    // Load log
-    const logRes = await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.logListName)}/items?$expand=fields&$top=500`
-    );
-    logEntries = (logRes.value || []).map(item => {
-      const f = item.fields;
-      return {
-        ts:             item.createdDateTime ? new Date(item.createdDateTime).getTime() : 0,
-        event:          f.Title          || '',
-        deviceName:     f.DeviceName     || '',
-        category:       f.Category       || '',
-        employee:       f.Employee       || '',
-        project:        f.Project        || '',
-        condition:      f.Condition      || '',
-        conditionNotes: f.ConditionNotes || '',
-        itemId:         item.id
-      };
-    }).sort((a, b) => a.ts - b.ts);
-
-    // Load current AvailableDevices items so we know what's already in the list
-    try {
-      const avRes = await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.availableListName)}/items?$expand=fields&$top=500`
-      );
-      availableItemIds = {};
-      for (const item of (avRes.value || [])) {
-        // Use device name as key (Title stores device name in AvailableDevices)
-        const devId = ALL_DEVICES.find(d => d.name === item.fields.Title)?.id || item.fields.Title;
-        availableItemIds[devId] = item.id;
-      }
-      // Sync the list to match current availability (best-effort)
-      syncAvailableList().catch(e => console.warn('AvailableDevices sync failed:', e.message));
-    } catch (e) {
-      console.warn('AvailableDevices list not found — skipping sync:', e.message);
-    }
-
-    render();
-    if (document.getElementById('tab-log').style.display          === 'block') renderLog();
-    if (document.getElementById('tab-reservations').style.display === 'block') renderReservations();
-
-    document.getElementById('last-updated').textContent =
-      new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-  } catch (e) {
-    console.error('Refresh error:', e);
-    toast('Could not refresh data — check your connection', 'error');
-  }
-}
-
-// ── Auto-checkout when a reservation's start date arrives ─────
-async function autoCheckoutReservations() {
-  const today = todayISO();
-  const due = reservations.filter(r =>
-    r.startDate <= today &&      // start date has arrived
-    r.status === 'active' &&     // not already processed
-    !checkouts[r.deviceId]       // device not already checked out
-  );
-  if (due.length === 0) return false;
-
-  let anyDone = false;
-  for (const r of due) {
-    const d = ALL_DEVICES.find(x => x.id === r.deviceId);
-    if (!d || d.status === 'maintenance') continue;
-    try {
-      // Check out the device using the reservation details;
-      // expected return = reservation end date
-      await doCheckout(r.deviceId, d.name, d.category, r.employee, r.project, r.endDate);
-      // Mark reservation so it never triggers again
-      await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.reservationsListName)}/items/${r.id}`,
-        { method: 'PATCH', body: JSON.stringify({ fields: { Status: 'auto-checked-out' } }) }
-      );
-      // Update in-memory status so the filter above works correctly
-      r.status = 'auto-checked-out';
-      anyDone = true;
-      toast(`📅 ${d.name} automatically checked out to ${r.employee} — reservation started`, 'info');
-    } catch (e) {
-      console.warn('Auto-checkout failed for', r.deviceName, ':', e.message);
-    }
-  }
-  return anyDone;
-}
-
-async function doCheckout(deviceId, deviceName, category, employee, project, expectedReturn) {
-  const ts = Date.now();
-  // Add to DeviceCheckouts list (critical — must succeed)
-  await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.checkoutsListName)}/items`, {
-    method: 'POST',
-    body: JSON.stringify({ fields: {
-      Title:             deviceId,
-      DeviceName:        deviceName,
-      Category:          category,
-      Employee:          employee,
-      Project:           project,
-      CheckoutTimestamp: ts,
-      ExpectedReturn:    expectedReturn
-    }})
-  });
-  // Log the event (best-effort — don't block checkout if log fails)
-  try {
-    await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.logListName)}/items`, {
-      method: 'POST',
-      body: JSON.stringify({ fields: {
-        Title:      'out',
-        DeviceName: deviceName,
-        Category:   category,
-        Employee:   employee,
-        Project:    project
-      }})
-    });
-  } catch (logErr) {
-    console.warn('CheckoutLog write failed (checkout still saved):', logErr.message);
-  }
-}
-
-async function doCheckin(deviceId, condition, conditionNotes) {
-  const co = checkouts[deviceId];
-  if (!co) return;
-  // Remove from DeviceCheckouts list (critical — must succeed)
-  await graph(
-    `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.checkoutsListName)}/items/${co.itemId}`,
-    { method: 'DELETE' }
-  );
-  // Log the event (best-effort — don't block checkin if log fails)
-  try {
-    const logFields = {
-      Title:      'in',
-      DeviceName: co.deviceName,
-      Category:   co.category,
-      Employee:   co.employee,
-      Project:    co.project
-    };
-    if (condition)      logFields.Condition      = condition;
-    if (conditionNotes) logFields.ConditionNotes = conditionNotes;
-    await graph(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.logListName)}/items`, {
-      method: 'POST',
-      body: JSON.stringify({ fields: logFields })
-    });
-  } catch (logErr) {
-    console.warn('CheckoutLog write failed (checkin still saved):', logErr.message);
-  }
-}
-
-async function doDeleteAllLog() {
-  const ids = logEntries.map(e => e.itemId).filter(Boolean);
-  // Delete in batches of 20 using Graph batch API
-  for (let i = 0; i < ids.length; i += 20) {
-    const batch = ids.slice(i, i + 20).map((id, idx) => ({
-      id: String(idx + 1),
-      method: 'DELETE',
-      url: `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.logListName)}/items/${id}`
-    }));
-    await graph('/$batch', {
-      method: 'POST',
-      body: JSON.stringify({ requests: batch })
-    });
-  }
-}
-
-// ── UI Rendering ──────────────────────────────────────────────
-function render() {
-  renderSummary();
-  renderEquipment();
-  if (document.getElementById('tab-manage').style.display       === 'block') renderManage();
-  if (document.getElementById('tab-reservations').style.display === 'block') renderReservations();
-  if (document.getElementById('tab-analytics').style.display    === 'block') renderAnalytics();
-}
-
-function renderSummary() {
-  const activeDevices = ALL_DEVICES.filter(d => d.status !== 'maintenance');
-  const maintenance = ALL_DEVICES.length - activeDevices.length;
-  const total   = activeDevices.length;
-  const out     = activeDevices.filter(d => checkouts[d.id]).length;
-  const today   = todayISO();
-  const overdue = activeDevices.filter(d => checkouts[d.id]?.expectedReturn && checkouts[d.id].expectedReturn < today).length;
-  document.getElementById('summary-bar').innerHTML = `
-    <div class="stat-card total">
-      <span class="label">Total Devices</span>
-      <span class="value">${total}</span><span class="sub">in inventory</span>
-    </div>
-    <div class="stat-card available">
-      <span class="label">Available</span>
-      <span class="value">${total - out}</span><span class="sub">ready to check out</span>
-    </div>
-    <div class="stat-card checked-out">
-      <span class="label">Checked Out</span>
-      <span class="value">${out}</span><span class="sub">currently in use</span>
-    </div>
-    ${overdue > 0 ? `
-    <div class="stat-card" style="border-left:4px solid var(--red);background:#fff8f8;">
-      <span class="label" style="color:var(--red)">⚠ Overdue</span>
-      <span class="value" style="color:var(--red)">${overdue}</span>
-      <span class="sub">past return date</span>
-    </div>` : ''}
-    ${maintenance > 0 ? `
-    <div class="stat-card" style="border-left:4px solid #94a3b8;background:#f8fafc;">
-      <span class="label" style="color:#475569">🔧 Maintenance</span>
-      <span class="value" style="color:#475569">${maintenance}</span>
-      <span class="sub">offline for service</span>
-    </div>` : ''}
-    <div class="stat-card" style="border-left:4px solid var(--accent)">
-      <span class="label">Log Entries</span>
-      <span class="value" style="color:var(--accent)">${logEntries.length}</span>
-      <span class="sub">total transactions</span>
-    </div>`;
-}
-
-function renderEquipment() {
-  if (ALL_DEVICES.length === 0) {
-    document.getElementById('equipment-sections').innerHTML = `
-      <div style="text-align:center;padding:60px 20px;color:var(--muted);">
-        <div style="font-size:48px;margin-bottom:12px">📦</div>
-        <p style="margin-bottom:16px">No devices in inventory yet.</p>
-        <button class="btn-add-device" onclick="showTab('manage')">Go to Manage Devices →</button>
-      </div>`;
-    return;
-  }
-  // Group by category, preserving insertion order (exclude maintenance devices)
-  const catMap = {};
-  for (const d of ALL_DEVICES) {
-    if (d.status === 'maintenance') continue;
-    if (!catMap[d.category]) catMap[d.category] = [];
-    catMap[d.category].push(d);
-  }
-  // Show maintenance devices at bottom
-  const maintDevices = ALL_DEVICES.filter(d => d.status === 'maintenance');
-  document.getElementById('equipment-sections').innerHTML =
-    [...Object.entries(catMap).map(([catName, devices]) => {
-      const icon   = CATEGORY_ICONS[catName] || '📦';
-      const today2 = todayISO();
-      // Sort: overdue first, then other checked-out, then available
-      const sorted = [...devices].sort((a, b) => {
-        const aOverdue = checkouts[a.id]?.expectedReturn < today2 && checkouts[a.id]?.expectedReturn;
-        const bOverdue = checkouts[b.id]?.expectedReturn < today2 && checkouts[b.id]?.expectedReturn;
-        if (aOverdue && !bOverdue) return -1;
-        if (!aOverdue && bOverdue) return  1;
-        return 0;
-      });
-      const overdueCount = devices.filter(d => checkouts[d.id]?.expectedReturn && checkouts[d.id].expectedReturn < today2).length;
-      return `
-        <div class="category-block">
-          <div class="section-header">
-            <h2><span>${icon}</span>${escHtml(catName)}</h2>
-            <span style="font-size:12px;color:var(--muted)">
-              ${devices.filter(d => !checkouts[d.id]).length} / ${devices.length} available
-              ${overdueCount > 0 ? `<span style="color:var(--red);font-weight:700;margin-left:8px">· ${overdueCount} overdue</span>` : ''}
-            </span>
-          </div>
-          <div class="equipment-grid">${sorted.map(deviceCard).join('')}</div>
-        </div>`;
-    }),
-    maintDevices.length > 0 ? [`
-        <div class="category-block">
-          <div class="section-header">
-            <h2><span>🔧</span>Under Maintenance</h2>
-            <span style="font-size:12px;color:var(--muted)">${maintDevices.length} device${maintDevices.length !== 1 ? 's' : ''} offline</span>
-          </div>
-          <div class="equipment-grid">${maintDevices.map(d => `
-            <div class="device-card maintenance">
-              <div class="device-card-top">
-                <div>
-                  <div class="device-name">${escHtml(d.name)}</div>
-                  <div class="device-type">${escHtml(d.category)}</div>
-                </div>
-                <span class="status-pill maintenance">Maintenance</span>
-              </div>
-              <div class="device-info" style="color:var(--muted)">🔧 This device is offline for service</div>
-              <div class="device-card-actions">
-                <button class="btn btn-online" onclick="toggleMaintenance('${d.inventoryItemId}', false)">✓ Bring Online</button>
-              </div>
-            </div>`).join('')}
-          </div>
-        </div>`] : []
-    ].flat().join('');
-}
-
-function deviceCard(d) {
-  const co    = checkouts[d.id];
-  const isOut = !!co;
-  const today = todayISO();
-
-  // Upcoming reservation badges (next 30 days)
-  const upcoming = reservations.filter(r =>
-    r.deviceId === d.id && r.endDate >= today
-  ).sort((a,b) => a.startDate.localeCompare(b.startDate));
-  const activeRes = upcoming.find(r => r.startDate <= today);
-
-  // Overdue check
-  const isOverdue = isOut && co.expectedReturn && co.expectedReturn < today;
-
-  return `
-    <div class="device-card ${isOut ? 'out' : 'in'}${isOverdue ? ' overdue' : ''}">
-      <div class="device-card-top">
-        <div>
-          <div class="device-name">${escHtml(d.name)}</div>
-          <div class="device-type">${escHtml(d.category)}${d.serialCode ? `<span style="margin-left:6px;color:var(--muted);font-size:10px;font-family:monospace">${escHtml(d.serialCode)}</span>` : ''}</div>
-        </div>
-        <span class="status-pill ${isOut ? 'out' : 'available'}">${isOut ? 'Checked Out' : 'Available'}</span>
-      </div>
-      <div class="device-info">
-        ${isOut ? `
-          <div class="info-row"><span class="info-label">Employee:</span>${escHtml(co.employee)}</div>
-          <div class="info-row"><span class="info-label">Project:</span>${escHtml(co.project)}</div>
-          <div class="info-row"><span class="info-label">Since:</span>${formatTime(co.timestamp)}</div>
-          <div class="info-row"><span class="info-label">Due Back:</span>${co.expectedReturn ? formatDate(co.expectedReturn) : '—'}${isOverdue ? '<span class="overdue-pill">⚠ Overdue</span>' : ''}</div>
-        ` : `<span style="color:var(--green);font-weight:600;">${activeRes ? `Reserved by ${escHtml(activeRes.employee)}` : 'Ready for checkout'}</span>`}
-        ${!isOut && upcoming.length > 0 ? `<div class="device-reservation-badge">📅 Reserved ${formatDate(upcoming[0].startDate)}–${formatDate(upcoming[0].endDate)}</div>` : ''}
-      </div>
-      <div class="device-card-actions">
-        ${isOut
-          ? `<button class="btn btn-checkin" onclick="openCheckin('${d.id}')">↩ Check In</button>`
-          : `<button class="btn btn-checkout" onclick="openCheckout('${d.id}')" ${activeRes ? 'style="opacity:.5"' : ''}>↗ Check Out</button>
-             <button class="btn btn-reserve"  onclick="openReserve('${d.id}')">📅 Reserve</button>`}
-      </div>
-    </div>`;
-}
-
-function renderLog() {
-  const search = (document.getElementById('log-search').value || '').toLowerCase();
-  const filter = document.getElementById('log-filter').value;
-  const rows = [...logEntries].reverse().filter(e => {
-    if (filter && e.event !== filter) return false;
-    if (search && !`${e.deviceName} ${e.employee} ${e.project}`.toLowerCase().includes(search)) return false;
-    return true;
-  });
-  const tbody = document.getElementById('log-body');
-  const condClass = { 'Good': 'cond-good', 'Minor Issue': 'cond-minor', 'Needs Repair': 'cond-repair' };
-  tbody.innerHTML = rows.length ? rows.map(e => {
-    const condPill = e.condition
-      ? `<span class="cond-pill ${condClass[e.condition] || ''}">${escHtml(e.condition)}</span>`
-      : '';
-    const notesTip = e.conditionNotes
-      ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">${escHtml(e.conditionNotes)}</div>`
-      : '';
-    return `
-    <tr>
-      <td>${formatDateTime(e.ts)}</td>
-      <td><span class="log-event ${e.event}">${e.event === 'out' ? '↗ Checked Out' : '↩ Checked In'}</span></td>
-      <td><strong>${escHtml(e.deviceName)}</strong><br>
-          <span style="color:var(--muted);font-size:11px">${escHtml(e.category)}</span></td>
-      <td>${escHtml(e.employee)}</td>
-      <td>${escHtml(e.project || '—')}</td>
-      <td>${condPill}${notesTip}</td>
-    </tr>`;
-  }).join('')
-    : `<tr><td colspan="6" class="empty-state">No log entries found.</td></tr>`;
-}
-
-// ── Modal Actions ─────────────────────────────────────────────
-function openCheckout(deviceId) {
-  const deviceObj = ALL_DEVICES.find(x => x.id === deviceId);
-  if (deviceObj?.status === 'maintenance') {
-    toast(`${deviceObj.name} is currently offline for maintenance`, 'error');
-    return;
-  }
-  // Block if device has an active reservation today
-  const today = todayISO();
-  const activeRes = reservations.find(r =>
-    r.deviceId === deviceId && r.startDate <= today && r.endDate >= today
-  );
-  if (activeRes) {
-    toast(`${ALL_DEVICES.find(x=>x.id===deviceId)?.name} is reserved by ${activeRes.employee} until ${formatDate(activeRes.endDate)}`, 'error');
-    return;
-  }
-  activeDeviceId = deviceId;
-  const d = ALL_DEVICES.find(x => x.id === deviceId);
-  document.getElementById('checkout-modal-device').textContent = `${d.category} › ${d.name}`;
-  document.getElementById('checkout-name').value    = '';
-  document.getElementById('checkout-project').value = '';
-  // Default return date: 1 week from today
-  const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
-  document.getElementById('checkout-return').value = nextWeek.toISOString().split('T')[0];
-  document.getElementById('checkout-return').min   = today;
-  openModal('checkout-modal');
-  setTimeout(() => document.getElementById('checkout-name').focus(), 60);
-}
-
-async function confirmCheckout() {
-  const name         = document.getElementById('checkout-name').value.trim();
-  const project      = document.getElementById('checkout-project').value.trim();
-  const returnDate   = document.getElementById('checkout-return').value;
-  if (!name)       { shakeInput('checkout-name');    return; }
-  if (!project)    { shakeInput('checkout-project'); return; }
-  if (!returnDate) { shakeInput('checkout-return');  return; }
-  if (isSaving) return;
-
-  // Warn if a reservation exists during the checkout period
-  const conflicts = reservations.filter(r =>
-    r.deviceId === activeDeviceId &&
-    r.startDate <= returnDate &&
-    r.endDate >= todayISO()
-  );
-  if (conflicts.length > 0) {
-    const c = conflicts[0];
-    if (!confirm(`⚠ This device is reserved by ${c.employee} (${formatDate(c.startDate)}–${formatDate(c.endDate)}). Check out anyway?`)) return;
-  }
-
-  const d = ALL_DEVICES.find(x => x.id === activeDeviceId);
-  setBtnLoading('checkout-confirm-btn', true);
-  isSaving = true;
-  try {
-    await doCheckout(activeDeviceId, d.name, d.category, name, project, returnDate);
-    closeModal('checkout-modal');
-    toast(`${d.name} checked out to ${name} — due ${formatDate(returnDate)}`, 'success');
-    await refreshData();
-  } catch (e) {
-    toast('Error saving checkout: ' + e.message, 'error');
-  } finally {
-    setBtnLoading('checkout-confirm-btn', false);
-    isSaving = false;
-  }
-}
-
-function openCheckin(deviceId) {
-  activeDeviceId = deviceId;
-  const d  = ALL_DEVICES.find(x => x.id === deviceId);
-  const co = checkouts[deviceId];
-  document.getElementById('checkin-modal-msg').innerHTML =
-    `Return <strong>${escHtml(d.name)}</strong> from <strong>${escHtml(co.employee)}</strong>?<br>
-     <span style="color:var(--muted);font-size:12px">Project: ${escHtml(co.project)}</span>`;
-  document.getElementById('checkin-condition').value = '';
-  document.getElementById('checkin-notes').value     = '';
-  openModal('checkin-modal');
-}
-
-async function confirmCheckin() {
-  if (isSaving) return;
-  const d = ALL_DEVICES.find(x => x.id === activeDeviceId);
-  const condition      = document.getElementById('checkin-condition').value;
-  const conditionNotes = document.getElementById('checkin-notes').value.trim();
-  setBtnLoading('checkin-confirm-btn', true);
-  isSaving = true;
-  try {
-    await doCheckin(activeDeviceId, condition, conditionNotes);
-    closeModal('checkin-modal');
-    toast(`${d.name} checked back in`, 'success');
-    await refreshData();
-  } catch (e) {
-    toast('Error checking in: ' + e.message, 'error');
-  } finally {
-    setBtnLoading('checkin-confirm-btn', false);
-    isSaving = false;
-  }
-}
-
-function confirmClearLog() { openModal('clearlog-modal'); }
-async function clearLog() {
-  closeModal('clearlog-modal');
-  toast('Clearing log…', 'info');
-  try {
-    await doDeleteAllLog();
-    await refreshData();
-    toast('Checkout log cleared', 'error');
-  } catch (e) {
-    toast('Error clearing log: ' + e.message, 'error');
-  }
-}
-
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(el =>
-  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); })
-);
-
-// ── Tab ───────────────────────────────────────────────────────
-const TABS = ['inventory','reservations','log','manage','analytics'];
-function showTab(tab) {
-  TABS.forEach(t => {
-    document.getElementById(`tab-${t}`).style.display = tab === t ? 'block' : 'none';
-  });
-  document.querySelectorAll('nav button').forEach((b, i) =>
-    b.classList.toggle('active', TABS[i] === tab)
-  );
-  if (tab === 'log')          renderLog();
-  if (tab === 'available')    renderAvailable();
-  if (tab === 'reservations') renderReservations();
-  if (tab === 'manage')       renderManage();
-  if (tab === 'analytics')    renderAnalytics();
-  // Update URL hash so Teams tab can link directly to a tab
-  history.replaceState(null, '', '#' + tab);
-}
-
-// ── Device Inventory ─────────────────────────────────────────
-async function loadDevices() {
-  try {
-    const res = await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items?$expand=fields&$top=500`
-    );
-    ALL_DEVICES = (res.value || []).map(item => ({
-      id:              item.fields.Title,
-      name:            item.fields.DeviceName    || '',
-      category:        item.fields.Category      || '',
-      sortOrder:       item.fields.SortOrder     || 0,
-      status:          item.fields.Status        || 'active',
-      serialCode:      item.fields.SerialCode    || '',
-      categoryIcon:    item.fields.CategoryIcon  || '',
-      inventoryItemId: item.id
-    })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-
-    // Rebuild CATEGORY_ICONS: keep hardcoded defaults, overlay anything stored in SharePoint
-    for (const d of ALL_DEVICES) {
-      if (d.categoryIcon && !CATEGORY_ICONS[d.category]) {
-        CATEGORY_ICONS[d.category] = d.categoryIcon;
-      }
-    }
-  } catch (e) {
-    console.warn('DeviceInventory list not found or failed to load:', e.message);
-    ALL_DEVICES = [];
-  }
-}
-
-function renderManage() {
-  const el = document.getElementById('manage-content');
-  if (ALL_DEVICES.length === 0) {
-    el.innerHTML = `
-      <div class="manage-empty">
-        <div class="empty-icon">📦</div>
-        <p style="margin-bottom:20px;font-size:15px">No devices yet.</p>
-        <p style="margin-bottom:24px;font-size:13px">Add devices one at a time, or import the original 14 to get started quickly.</p>
-        <button class="btn-add-device" onclick="seedDefaultDevices()" id="seed-btn">📥 Import Default 14 Devices</button>
-      </div>`;
-    return;
-  }
-  // Group by category
-  const catMap = {};
-  for (const d of ALL_DEVICES) {
-    if (!catMap[d.category]) catMap[d.category] = [];
-    catMap[d.category].push(d);
-  }
-  el.innerHTML = Object.entries(catMap).map(([catName, devices]) => {
-    const icon = CATEGORY_ICONS[catName] || '📦';
-    return `
-      <div class="manage-category">
-        <div class="manage-cat-header">
-          <span>${icon} ${escHtml(catName)}</span>
-          <span style="font-size:12px;font-weight:400;opacity:.75">${devices.length} device${devices.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="manage-device-list">
-          ${devices.map(d => {
-            const isOut = !!checkouts[d.id];
-            const isMaint = d.status === 'maintenance';
-            let statusLabel, statusClass;
-            if (isMaint)        { statusLabel = '🔧 Maintenance'; statusClass = 'maintenance'; }
-            else if (isOut)     { statusLabel = 'Checked Out';    statusClass = 'out'; }
-            else                { statusLabel = 'Available';       statusClass = 'available'; }
-            return `
-              <div class="manage-device-row" style="${isMaint ? 'opacity:.7;background:#f8fafc;' : ''}">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span class="manage-device-name">${escHtml(d.name)}</span>
-                  <span class="manage-device-status ${statusClass}">${statusLabel}</span>
-                </div>
-                <div class="manage-device-actions">
-                  <button class="btn-sm" onclick="openEditDevice('${d.inventoryItemId}')">✏ Edit</button>
-                  ${isMaint
-                    ? `<button class="btn-sm btn-online" onclick="toggleMaintenance('${d.inventoryItemId}', false)">✓ Bring Online</button>`
-                    : `<button class="btn-sm btn-maintenance" onclick="toggleMaintenance('${d.inventoryItemId}', true)" ${isOut ? 'disabled title="Check in device first"' : ''}>🔧 Take Offline</button>`}
-                  <button class="btn-sm btn-danger-sm" onclick="confirmDeleteDevice('${d.inventoryItemId}')">🗑 Delete</button>
-                </div>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function openAddDevice() {
-  editingDeviceItemId = null;
-  document.getElementById('device-modal-title').textContent = 'Add Device';
-  document.getElementById('device-modal-btn').textContent   = '+ Add Device';
-  document.getElementById('device-modal-name').value        = '';
-  document.getElementById('device-modal-category').value    = '';
-  document.getElementById('device-modal-serial').value      = '';
-  setModalIcon('📦');
-  // Populate category suggestions from existing devices
-  const cats = [...new Set(ALL_DEVICES.map(d => d.category))];
-  document.getElementById('category-suggestions').innerHTML =
-    cats.map(c => `<option value="${escHtml(c)}">`).join('');
-  populateIconSuggestions();
-  openModal('device-modal');
-  setTimeout(() => document.getElementById('device-modal-name').focus(), 60);
-}
-
-function openEditDevice(inventoryItemId) {
-  const d = ALL_DEVICES.find(x => x.inventoryItemId === inventoryItemId);
-  if (!d) return;
-  editingDeviceItemId = inventoryItemId;
-  document.getElementById('device-modal-title').textContent = 'Edit Device';
-  document.getElementById('device-modal-btn').textContent   = '✓ Save Changes';
-  document.getElementById('device-modal-name').value        = d.name;
-  document.getElementById('device-modal-category').value    = d.category;
-  document.getElementById('device-modal-serial').value      = d.serialCode || '';
-  setModalIcon(CATEGORY_ICONS[d.category] || '📦');
-  const cats = [...new Set(ALL_DEVICES.map(x => x.category))];
-  document.getElementById('category-suggestions').innerHTML =
-    cats.map(c => `<option value="${escHtml(c)}">`).join('');
-  populateIconSuggestions();
-  openModal('device-modal');
-  setTimeout(() => document.getElementById('device-modal-name').focus(), 60);
-}
-
-async function confirmSaveDevice() {
-  const name         = document.getElementById('device-modal-name').value.trim();
-  const category     = document.getElementById('device-modal-category').value.trim();
-  const serialCode   = document.getElementById('device-modal-serial').value.trim();
-  const categoryIcon = document.getElementById('device-modal-icon').value.trim() || CATEGORY_ICONS[category] || '📦';
-  if (!name)     { shakeInput('device-modal-name');     return; }
-  if (!category) { shakeInput('device-modal-category'); return; }
-
-  setBtnLoading('device-modal-btn', true);
-  try {
-    if (editingDeviceItemId) {
-      // Edit existing device
-      await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items/${editingDeviceItemId}`,
-        { method: 'PATCH', body: JSON.stringify({ fields: { DeviceName: name, Category: category, SerialCode: serialCode, CategoryIcon: categoryIcon } }) }
-      );
-      CATEGORY_ICONS[category] = categoryIcon; // update in-memory immediately
-      toast(`${name} updated`, 'success');
-    } else {
-      // Add new device — generate a unique slug ID
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const id   = slug + '-' + Date.now();
-      await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items`,
-        { method: 'POST', body: JSON.stringify({ fields: {
-            Title:        id,
-            DeviceName:   name,
-            Category:     category,
-            SortOrder:    ALL_DEVICES.length,
-            SerialCode:   serialCode,
-            CategoryIcon: categoryIcon
-          }})
-        }
-      );
-      CATEGORY_ICONS[category] = categoryIcon; // update in-memory immediately
-      toast(`${name} added to inventory`, 'success');
-    }
-    closeModal('device-modal');
-    await loadDevices();
-    render();
-    renderManage();
-  } catch (e) {
-    toast('Error saving device: ' + e.message, 'error');
-  } finally {
-    setBtnLoading('device-modal-btn', false);
-  }
-}
-
-function confirmDeleteDevice(inventoryItemId) {
-  const d = ALL_DEVICES.find(x => x.inventoryItemId === inventoryItemId);
-  if (!d) return;
-  if (checkouts[d.id]) {
-    toast(`${d.name} is currently checked out — check it in first before removing it`, 'error');
-    return;
-  }
-  activeDeleteItemId = inventoryItemId;
-  document.getElementById('delete-device-modal-msg').textContent =
-    `This will permanently remove "${d.name}" from the inventory. This cannot be undone.`;
-  openModal('delete-device-modal');
-}
-
-async function deleteDevice() {
-  setBtnLoading('delete-device-confirm-btn', true);
-  const d = ALL_DEVICES.find(x => x.inventoryItemId === activeDeleteItemId);
-  try {
-    await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items/${activeDeleteItemId}`,
-      { method: 'DELETE' }
-    );
-    toast(`${d ? d.name : 'Device'} removed from inventory`, 'success');
-    closeModal('delete-device-modal');
-    await loadDevices();
-    render();
-    renderManage();
-  } catch (e) {
-    toast('Error removing device: ' + e.message, 'error');
-  } finally {
-    setBtnLoading('delete-device-confirm-btn', false);
-  }
-}
-
-async function toggleMaintenance(inventoryItemId, goOffline) {
-  const d = ALL_DEVICES.find(x => x.inventoryItemId === inventoryItemId);
-  if (!d) return;
-  if (goOffline && checkouts[d.id]) {
-    toast(`${d.name} is currently checked out — check it in before taking it offline`, 'error');
-    return;
-  }
-  try {
-    await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items/${inventoryItemId}`,
-      { method: 'PATCH', body: JSON.stringify({ fields: { Status: goOffline ? 'maintenance' : 'active' } }) }
-    );
-    toast(`${d.name} ${goOffline ? 'taken offline for maintenance' : 'brought back online'}`, 'success');
-    await loadDevices();
-    render();
-    renderManage();
-  } catch (e) {
-    toast('Error updating device status: ' + e.message, 'error');
-  }
-}
-
-async function seedDefaultDevices() {
-  const btn = document.getElementById('seed-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
-  try {
-    for (let i = 0; i < DEFAULT_DEVICES.length; i++) {
-      const d = DEFAULT_DEVICES[i];
-      await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.deviceInventoryListName)}/items`,
-        { method: 'POST', body: JSON.stringify({ fields: {
-            Title:      d.id,
-            DeviceName: d.name,
-            Category:   d.category,
-            SortOrder:  i
-          }})
-        }
-      );
-    }
-    toast('Default devices imported!', 'success');
-    await loadDevices();
-    render();
-    renderManage();
-  } catch (e) {
-    toast('Import error: ' + e.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '📥 Import Default 14 Devices'; }
-  }
-}
-
-// ── Analytics Tab ─────────────────────────────────────────────
-function renderAnalytics() {
-  const el = document.getElementById('analytics-content');
-  if (logEntries.length === 0) {
-    el.innerHTML = `<div class="analytics-empty"><div style="font-size:48px;margin-bottom:12px">📊</div><p>No checkout history yet. Analytics will appear here once devices have been checked out and returned.</p></div>`;
-    return;
-  }
-
-  // ── 1. Checkout counts per device ──
-  const checkoutCounts = {};
-  for (const e of logEntries) {
-    if (e.event !== 'out') continue;
-    checkoutCounts[e.deviceName] = (checkoutCounts[e.deviceName] || 0) + 1;
-  }
-  const topDevices = Object.entries(checkoutCounts)
-    .sort((a,b) => b[1] - a[1]).slice(0, 8);
-  const maxCount = topDevices[0]?.[1] || 1;
-
-  // ── 2. Average checkout duration per device (pair out→in by deviceName) ──
-  const durations = {}; // deviceName → [hours]
-  const outEvents = {};  // deviceName → [timestamp]
-  for (const e of logEntries) {
-    if (e.event === 'out') {
-      if (!outEvents[e.deviceName]) outEvents[e.deviceName] = [];
-      outEvents[e.deviceName].push(e.ts);
-    } else if (e.event === 'in') {
-      const outs = outEvents[e.deviceName];
-      if (outs && outs.length > 0) {
-        const outTs = outs.shift();
-        const hrs = (e.ts - outTs) / 3600000;
-        if (hrs > 0 && hrs < 8760) { // 0–1 year sanity check
-          if (!durations[e.deviceName]) durations[e.deviceName] = [];
-          durations[e.deviceName].push(hrs);
-        }
-      }
-    }
-  }
-  const avgDurations = Object.entries(durations).map(([name, hrs]) => ({
-    name, avg: hrs.reduce((s,h) => s+h, 0) / hrs.length
-  })).sort((a,b) => b.avg - a.avg).slice(0, 8);
-  const maxAvg = avgDurations[0]?.avg || 1;
-
-  // ── 3. Busiest months ──
-  const monthCounts = {};
-  for (const e of logEntries) {
-    if (e.event !== 'out') continue;
-    const d = new Date(e.ts);
-    const key = d.toLocaleDateString('en-US', { month:'short', year:'numeric' });
-    monthCounts[key] = (monthCounts[key] || 0) + 1;
-  }
-  const topMonths = Object.entries(monthCounts).slice(-12).sort((a,b) => b[1]-a[1]).slice(0,8);
-  const maxMonth = topMonths[0]?.[1] || 1;
-
-  // ── 4. Top employees ──
-  const empCounts = {};
-  for (const e of logEntries) {
-    if (e.event !== 'out') continue;
-    empCounts[e.employee] = (empCounts[e.employee] || 0) + 1;
-  }
-  const topEmps = Object.entries(empCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
-  const maxEmp = topEmps[0]?.[1] || 1;
-
-  // ── 5. Condition breakdown ──
-  const condCounts = { 'Good': 0, 'Minor Issue': 0, 'Needs Repair': 0 };
-  let totalConditioned = 0;
-  for (const e of logEntries) {
-    if (e.event === 'in' && e.condition) {
-      condCounts[e.condition] = (condCounts[e.condition] || 0) + 1;
-      totalConditioned++;
-    }
-  }
-
-  function bar(pct, cls='') {
-    return `<div class="analytics-bar-wrap"><div class="analytics-bar ${cls}" style="width:${Math.max(2,pct)}%"></div></div>`;
-  }
-  function fmtDur(hrs) {
-    if (hrs < 24) return `${hrs.toFixed(1)}h`;
-    return `${(hrs/24).toFixed(1)}d`;
-  }
-
-  el.innerHTML = `
-    <div style="margin-bottom:10px">
-      <h2 style="font-size:20px;font-weight:800;color:var(--brand);margin-bottom:4px">Usage Analytics</h2>
-      <p style="font-size:13px;color:var(--muted)">Based on ${logEntries.filter(e=>e.event==='out').length} checkouts · ${logEntries.filter(e=>e.event==='in').length} check-ins</p>
-    </div>
-
-    <div class="analytics-grid">
-
-      <!-- Most-used devices -->
-      <div class="analytics-card">
-        <h3>📦 Most-Used Devices</h3>
-        ${topDevices.length ? topDevices.map(([name, cnt]) => `
-          <div class="analytics-row">
-            <span class="analytics-label" title="${escHtml(name)}">${escHtml(name)}</span>
-            ${bar(cnt/maxCount*100)}
-            <span class="analytics-val">${cnt}</span>
-          </div>`).join('') : '<p style="color:var(--muted);font-size:13px">No data yet</p>'}
-      </div>
-
-      <!-- Avg checkout duration -->
-      <div class="analytics-card">
-        <h3>⏱ Avg Checkout Duration</h3>
-        ${avgDurations.length ? avgDurations.map(({name, avg}) => `
-          <div class="analytics-row">
-            <span class="analytics-label" title="${escHtml(name)}">${escHtml(name)}</span>
-            ${bar(avg/maxAvg*100, 'accent')}
-            <span class="analytics-val">${fmtDur(avg)}</span>
-          </div>`).join('') : '<p style="color:var(--muted);font-size:13px">Check-ins needed to compute duration</p>'}
-      </div>
-
-      <!-- Busiest months -->
-      <div class="analytics-card">
-        <h3>📅 Busiest Months</h3>
-        ${topMonths.length ? topMonths.map(([month, cnt]) => `
-          <div class="analytics-row">
-            <span class="analytics-label">${escHtml(month)}</span>
-            ${bar(cnt/maxMonth*100, 'green')}
-            <span class="analytics-val">${cnt}</span>
-          </div>`).join('') : '<p style="color:var(--muted);font-size:13px">No data yet</p>'}
-      </div>
-
-      <!-- Top employees -->
-      <div class="analytics-card">
-        <h3>👤 Top Employees</h3>
-        ${topEmps.length ? topEmps.map(([emp, cnt]) => `
-          <div class="analytics-row">
-            <span class="analytics-label" title="${escHtml(emp)}">${escHtml(emp)}</span>
-            ${bar(cnt/maxEmp*100)}
-            <span class="analytics-val">${cnt}</span>
-          </div>`).join('') : '<p style="color:var(--muted);font-size:13px">No data yet</p>'}
-      </div>
-
-      ${totalConditioned > 0 ? `
-      <!-- Condition breakdown -->
-      <div class="analytics-card">
-        <h3>🔍 Return Conditions</h3>
-        <div class="analytics-row">
-          <span class="analytics-label">✅ Good</span>
-          ${bar(condCounts['Good']/totalConditioned*100, 'green')}
-          <span class="analytics-val">${condCounts['Good']}</span>
-        </div>
-        <div class="analytics-row">
-          <span class="analytics-label">⚠️ Minor Issue</span>
-          ${bar(condCounts['Minor Issue']/totalConditioned*100, 'accent')}
-          <span class="analytics-val">${condCounts['Minor Issue']}</span>
-        </div>
-        <div class="analytics-row">
-          <span class="analytics-label">🔴 Needs Repair</span>
-          ${bar(condCounts['Needs Repair']/totalConditioned*100)}
-          <span class="analytics-val">${condCounts['Needs Repair']}</span>
-        </div>
-        <p style="font-size:11px;color:var(--muted);margin-top:10px">${totalConditioned} of ${logEntries.filter(e=>e.event==='in').length} check-ins have condition data</p>
-      </div>` : ''}
-
-    </div>`;
-}
-
-// ── Available Now Tab ─────────────────────────────────────────
-function renderAvailable() {
-  const today = todayISO();
-  const available = ALL_DEVICES.filter(d => {
-    if (checkouts[d.id]) return false;  // currently checked out
-    const activeRes = reservations.find(r =>
-      r.deviceId === d.id && r.startDate <= today && r.endDate >= today
-    );
-    return !activeRes;  // not under active reservation
-  });
-
-  const el = document.getElementById('available-content');
-  document.getElementById('available-count').textContent =
-    `${available.length} of ${ALL_DEVICES.length} devices available`;
-
-  if (available.length === 0) {
-    el.innerHTML = `<div class="manage-empty"><div class="empty-icon">📦</div><p>All devices are currently checked out or reserved.</p></div>`;
-    return;
-  }
-
-  // Group by category
-  const catMap = {};
-  for (const d of available) {
-    if (!catMap[d.category]) catMap[d.category] = [];
-    catMap[d.category].push(d);
-  }
-
-  el.innerHTML = Object.entries(catMap).map(([catName, devices]) => {
-    const icon = CATEGORY_ICONS[catName] || '📦';
-    return `
-      <div class="avail-cat-header">${icon} ${escHtml(catName)}</div>
-      <div class="avail-grid">
-        ${devices.map(d => {
-          const upcoming = reservations
-            .filter(r => r.deviceId === d.id && r.startDate > today)
-            .sort((a,b) => a.startDate.localeCompare(b.startDate))[0];
-          return `
-            <div class="avail-row">
-              <div class="avail-row-info">
-                <div class="avail-row-name">${escHtml(d.name)}</div>
-                ${upcoming ? `<div class="avail-upcoming">📅 Reserved ${formatDate(upcoming.startDate)} – ${formatDate(upcoming.endDate)} by ${escHtml(upcoming.employee)}</div>` : ''}
-              </div>
-              <button class="btn btn-checkout" onclick="openCheckout('${d.id}')">↗ Check Out</button>
-              <button class="btn btn-reserve"  onclick="openReserve('${d.id}')">📅 Reserve</button>
-            </div>`;
-        }).join('')}
-      </div>`;
-  }).join('');
-}
-
-// ── Reservations Tab ──────────────────────────────────────────
-function renderReservations() {
-  const today = todayISO();
-  const el = document.getElementById('reservations-content');
-
-  if (reservations.length === 0) {
-    el.innerHTML = `
-      <div class="manage-empty">
-        <div class="empty-icon">📅</div>
-        <p style="margin-bottom:16px">No upcoming reservations.</p>
-        <button class="btn-add-device" onclick="openReserve(null)">+ Make a Reservation</button>
-      </div>`;
-    return;
-  }
-
-  // Sort by start date
-  const sorted = [...reservations].sort((a,b) => a.startDate.localeCompare(b.startDate));
-  const active  = sorted.filter(r => r.startDate <= today);
-  const upcoming = sorted.filter(r => r.startDate > today);
-
-  let html = '';
-  if (active.length) {
-    html += `<div class="res-section-label">Active Now</div>`;
-    html += active.map(resCard).join('');
-  }
-  if (upcoming.length) {
-    html += `<div class="res-section-label">Upcoming</div>`;
-    html += upcoming.map(resCard).join('');
-  }
-  el.innerHTML = html;
-}
-
-function resCard(r) {
-  const today = todayISO();
-  const isActive = r.startDate <= today;
-  return `
-    <div class="res-card">
-      <div class="res-card-dates">
-        <div class="res-date-range">${formatDateShort(r.startDate)}</div>
-        <div class="res-date-sub">to</div>
-        <div class="res-date-range">${formatDateShort(r.endDate)}</div>
-      </div>
-      <div class="res-card-info">
-        <div class="res-card-device">
-          ${escHtml(r.deviceName)}
-          ${isActive ? '<span class="res-active-pill">Active</span>' : ''}
-        </div>
-        <div class="res-card-meta">
-          👤 ${escHtml(r.employee)} &nbsp;·&nbsp; 📋 ${escHtml(r.project || '—')}
-          <br><span style="font-size:11px;color:var(--muted)">${escHtml(r.category)}</span>
-        </div>
-      </div>
-      <button class="btn-cancel-res" onclick="openCancelReservation('${r.id}')">✕ Cancel</button>
-    </div>`;
-}
-
-// ── Reserve Modal ─────────────────────────────────────────────
-function openReserve(deviceId) {
-  activeDeviceId = deviceId;
-  const today = todayISO();
-
-  if (deviceId) {
-    const d = ALL_DEVICES.find(x => x.id === deviceId);
-    document.getElementById('reserve-modal-device').textContent = d ? `${d.category} › ${d.name}` : '';
-  } else {
-    document.getElementById('reserve-modal-device').textContent = 'Select a device below';
-  }
-
-  document.getElementById('reserve-name').value    = '';
-  document.getElementById('reserve-project').value = '';
-  document.getElementById('reserve-start').value   = today;
-  document.getElementById('reserve-start').min     = today;
-  // Default end: one week out
-  const end = new Date(); end.setDate(end.getDate() + 6);
-  document.getElementById('reserve-end').value = end.toISOString().split('T')[0];
-  document.getElementById('reserve-end').min   = today;
-  document.getElementById('reserve-conflict-msg').style.display = 'none';
-
-  // If no deviceId, inject a device selector
-  const devSelId = 'reserve-device-select';
-  let devSelHtml = document.getElementById(devSelId) ? '' : '';
-  if (!deviceId) {
-    // Add a device picker if not already present
-    const existing = document.getElementById(devSelId);
-    if (!existing) {
-      const grp = document.createElement('div');
-      grp.className = 'form-group';
-      grp.id = devSelId + '-wrap';
-      grp.innerHTML = `<label>Device *</label>
-        <select id="${devSelId}" style="width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);">
-          <option value="">— Choose a device —</option>
-          ${ALL_DEVICES.map(d => `<option value="${d.id}">${escHtml(d.category)} › ${escHtml(d.name)}</option>`).join('')}
-        </select>`;
-      document.getElementById('reserve-modal').querySelector('.modal').insertBefore(
-        grp,
-        document.getElementById('reserve-name').parentElement
-      );
-    }
-  } else {
-    // Remove device picker if it exists
-    const wrap = document.getElementById(devSelId + '-wrap');
-    if (wrap) wrap.remove();
-  }
-
-  openModal('reserve-modal');
-  setTimeout(() => document.getElementById('reserve-name').focus(), 60);
-}
-
-async function confirmReserve() {
-  const name      = document.getElementById('reserve-name').value.trim();
-  const project   = document.getElementById('reserve-project').value.trim();
-  const startDate = document.getElementById('reserve-start').value;
-  const endDate   = document.getElementById('reserve-end').value;
-  const devSel    = document.getElementById('reserve-device-select');
-  const deviceId  = activeDeviceId || (devSel ? devSel.value : '');
-
-  if (!name)      { shakeInput('reserve-name');    return; }
-  if (!project)   { shakeInput('reserve-project'); return; }
-  if (!startDate) { shakeInput('reserve-start');   return; }
-  if (!endDate)   { shakeInput('reserve-end');     return; }
-  if (!deviceId)  { toast('Please select a device', 'error'); return; }
-  if (endDate < startDate) {
-    shakeInput('reserve-end');
-    toast('End date must be on or after start date', 'error');
-    return;
-  }
-
-  const d = ALL_DEVICES.find(x => x.id === deviceId);
-  const conflictEl = document.getElementById('reserve-conflict-msg');
-  conflictEl.style.display = 'none';
-
-  // Check reservation conflicts
-  const resConflicts = reservations.filter(r =>
-    r.deviceId === deviceId && r.startDate <= endDate && r.endDate >= startDate
-  );
-  if (resConflicts.length > 0) {
-    const c = resConflicts[0];
-    conflictEl.textContent = `⚠ Conflict: ${escHtml(d?.name)} is already reserved by ${escHtml(c.employee)} from ${formatDate(c.startDate)} to ${formatDate(c.endDate)}.`;
-    conflictEl.style.display = 'block';
-    return;
-  }
-
-  // Check active checkout conflict
-  const co = checkouts[deviceId];
-  if (co && co.expectedReturn && co.expectedReturn >= startDate) {
-    conflictEl.textContent = `⚠ Conflict: ${escHtml(d?.name)} is checked out by ${escHtml(co.employee)} with expected return ${formatDate(co.expectedReturn)}, which overlaps your reservation start.`;
-    conflictEl.style.display = 'block';
-    return;
-  }
-  if (co && !co.expectedReturn) {
-    conflictEl.textContent = `⚠ ${escHtml(d?.name)} is currently checked out with no return date set. It may not be available by ${formatDate(startDate)}.`;
-    conflictEl.style.display = 'block';
-    // Allow override after warning — don't return, let them proceed
-  }
-
-  setBtnLoading('reserve-confirm-btn', true);
-  try {
-    const resId = 'res-' + Date.now();
-    await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.reservationsListName)}/items`,
-      { method: 'POST', body: JSON.stringify({ fields: {
-          Title:      resId,
-          DeviceName: d ? d.name : deviceId,
-          Category:   d ? d.category : '',
-          Employee:   name,
-          Project:    project,
-          StartDate:  startDate,
-          EndDate:    endDate,
-          Status:     'active'
-      }})}
-    );
-    closeModal('reserve-modal');
-    toast(`${d?.name} reserved for ${name} (${formatDate(startDate)}–${formatDate(endDate)})`, 'success');
-    await refreshData();
-    showTab('reservations');
-  } catch (e) {
-    toast('Error saving reservation: ' + e.message, 'error');
-  } finally {
-    setBtnLoading('reserve-confirm-btn', false);
-  }
-}
-
-function openCancelReservation(itemId) {
-  const r = reservations.find(x => x.id === itemId);
-  if (!r) return;
-  activeReservationItemId = itemId;
-  document.getElementById('cancel-res-msg').innerHTML =
-    `Cancel the reservation for <strong>${escHtml(r.deviceName)}</strong> by <strong>${escHtml(r.employee)}</strong> (${formatDate(r.startDate)} – ${formatDate(r.endDate)})?`;
-  openModal('cancel-res-modal');
-}
-
-async function confirmCancelReservation() {
-  setBtnLoading('cancel-res-confirm-btn', true);
-  try {
-    // Mark as cancelled rather than deleting (preserves history)
-    await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.reservationsListName)}/items/${activeReservationItemId}`,
-      { method: 'PATCH', body: JSON.stringify({ fields: { Status: 'cancelled' } }) }
-    );
-    closeModal('cancel-res-modal');
-    toast('Reservation cancelled', 'success');
-    await refreshData();
-  } catch (e) {
-    toast('Error cancelling reservation: ' + e.message, 'error');
-  } finally {
-    setBtnLoading('cancel-res-confirm-btn', false);
-  }
-}
-
-// ── AvailableDevices List Sync ────────────────────────────────
-async function syncAvailableList() {
-  const today = todayISO();
-
-  // Which devices should currently be in the list
-  const shouldBeAvailable = new Set(
-    ALL_DEVICES.filter(d => {
-      if (checkouts[d.id]) return false;
-      const activeRes = reservations.find(r =>
-        r.deviceId === d.id && r.startDate <= today && r.endDate >= today
-      );
-      return !activeRes;
-    }).map(d => d.id)
-  );
-
-  const currentInList = new Set(Object.keys(availableItemIds));
-
-  // Remove devices that are no longer available
-  for (const deviceId of currentInList) {
-    if (!shouldBeAvailable.has(deviceId)) {
-      await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.availableListName)}/items/${availableItemIds[deviceId]}`,
-        { method: 'DELETE' }
-      );
-      delete availableItemIds[deviceId];
-    }
-  }
-
-  // Add devices that became available and aren't in the list yet
-  for (const deviceId of shouldBeAvailable) {
-    if (!currentInList.has(deviceId)) {
-      const d = ALL_DEVICES.find(x => x.id === deviceId);
-      if (!d) continue;
-      // Find next upcoming reservation for display
-      const nextRes = reservations
-        .filter(r => r.deviceId === deviceId && r.startDate > today)
-        .sort((a,b) => a.startDate.localeCompare(b.startDate))[0];
-      const item = await graph(
-        `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.availableListName)}/items`,
-        { method: 'POST', body: JSON.stringify({ fields: {
-            Title:           d.name,
-            Category:        d.category,
-            NextReservation: nextRes ? `${formatDate(nextRes.startDate)} — ${escHtml(nextRes.employee)}` : ''
-          }})
-        }
-      );
-      availableItemIds[deviceId] = item.id;
-    }
-  }
-
-  // Update NextReservation field for devices that are in the list
-  for (const deviceId of shouldBeAvailable) {
-    if (!currentInList.has(deviceId)) continue; // was just added above
-    const d = ALL_DEVICES.find(x => x.id === deviceId);
-    if (!d) continue;
-    const nextRes = reservations
-      .filter(r => r.deviceId === deviceId && r.startDate > today)
-      .sort((a,b) => a.startDate.localeCompare(b.startDate))[0];
-    const newVal = nextRes ? `${formatDate(nextRes.startDate)} — ${escHtml(nextRes.employee)}` : '';
-    await graph(
-      `/sites/${siteId}/lists/${encodeURIComponent(CONFIG.availableListName)}/items/${availableItemIds[deviceId]}`,
-      { method: 'PATCH', body: JSON.stringify({ fields: { NextReservation: newVal } }) }
-    );
-  }
-}
-
-// ── Polling ───────────────────────────────────────────────────
-function startPolling() {
-  clearInterval(pollTimer);
-  pollTimer = setInterval(refreshData, CONFIG.pollInterval);
-}
-
-// ── Screen helpers ────────────────────────────────────────────
-function showSignIn()  {
-  document.getElementById('signin-screen').style.display  = 'flex';
-  document.getElementById('loading-screen').style.display = 'none';
-}
-function showLoading(msg) {
-  document.getElementById('signin-screen').style.display  = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
-  document.getElementById('loading-msg').textContent = msg;
-}
-function hideScreens() {
-  document.getElementById('signin-screen').style.display  = 'none';
-  document.getElementById('loading-screen').style.display = 'none';
-}
-
-// ── Utilities ─────────────────────────────────────────────────
-function escHtml(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function todayISO() {
-  return new Date().toISOString().split('T')[0];
-}
-function formatDate(isoDate) {
-  if (!isoDate) return '—';
-  const d = new Date(isoDate + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-}
-function formatDateShort(isoDate) {
-  if (!isoDate) return '—';
-  const d = new Date(isoDate + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-}
-function formatTime(ts) {
-  return new Date(ts).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-}
-function formatDateTime(ts) {
-  return new Date(ts).toLocaleDateString('en-US', {
-    month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true
-  });
-}
-function shakeInput(id) {
-  const el = document.getElementById(id);
-  el.style.borderColor = 'var(--red)'; el.focus();
-  setTimeout(() => el.style.borderColor = '', 1500);
-}
-function setBtnLoading(id, loading, originalLabel) {
-  const btn = document.getElementById(id);
-  btn.disabled = loading;
-  if (loading) {
-    btn._origLabel = btn.textContent;
-    btn.textContent = '…saving';
-  } else {
-    btn.textContent = originalLabel || btn._origLabel ||
-      (id.includes('checkout') ? '✓ Confirm Checkout' : '✓ Confirm Check In');
-  }
-}
-
-// ── Icon Picker ───────────────────────────────────────────────
-const ICON_SUGGESTIONS = [
-  '📡','🚁','🎥','💻','📱','🖥️','📷','🎬','🔦','🔧',
-  '⚡','📻','🌐','🎮','🛸','✈️','🏗️','🛠️','🔭','🎙️',
-  '📦','🔌','🖨️','🔋','📟','🖱️','⌨️','📺','🎛️','🔩',
-  '🚜','🚗','🚛','🛻','🏕️','⛺','🎣','🏄','🚀','🌊'
-];
-
-function populateIconSuggestions() {
-  const current = document.getElementById('device-modal-icon').value.trim() || '📦';
-  document.getElementById('icon-suggestions').innerHTML = ICON_SUGGESTIONS.map(e =>
-    `<div class="icon-option${e === current ? ' selected' : ''}" onclick="pickIcon('${e}')" title="${e}">${e}</div>`
-  ).join('');
-}
-
-function pickIcon(emoji) {
-  setModalIcon(emoji);
-  document.querySelectorAll('.icon-option').forEach(el =>
-    el.classList.toggle('selected', el.textContent === emoji)
-  );
-}
-
-function setModalIcon(emoji) {
-  document.getElementById('device-modal-icon').value = emoji;
-  document.getElementById('icon-preview').textContent = emoji || '📦';
-}
-
-function onIconInput() {
-  const val = document.getElementById('device-modal-icon').value.trim();
-  document.getElementById('icon-preview').textContent = val || '📦';
-  document.querySelectorAll('.icon-option').forEach(el =>
-    el.classList.toggle('selected', el.textContent === val)
-  );
-}
-
-function onCategoryInput() {
-  const cat = document.getElementById('device-modal-category').value.trim();
-  // Auto-fill icon if category already has one
-  if (CATEGORY_ICONS[cat]) {
-    setModalIcon(CATEGORY_ICONS[cat]);
-    document.querySelectorAll('.icon-option').forEach(el =>
-      el.classList.toggle('selected', el.textContent === CATEGORY_ICONS[cat])
-    );
-  }
-}
-
-// ── App Switcher ──────────────────────────────────────────────
-function toggleAppsDropdown(e) {
-  e.stopPropagation();
-  document.getElementById('apps-dropdown').classList.toggle('open');
-}
-document.addEventListener('click', function(e) {
-  const switcher = document.getElementById('app-switcher');
-  if (switcher && !switcher.contains(e.target)) {
-    document.getElementById('apps-dropdown').classList.remove('open');
-  }
-});
-
-let toastTimer;
-function toast(msg, type = '') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = `show ${type}`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.className = '', 3500);
-}
-
-function updateClock() {
-  const now = new Date();
-  document.getElementById('live-clock').textContent =
-    now.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', second:'2-digit' });
-  document.getElementById('header-date').textContent =
-    now.toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric' });
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(el => el.classList.remove('open'));
-  if (e.key === 'Enter' && document.getElementById('checkout-modal').classList.contains('open')) confirmCheckout();
-});
-
-// ── Boot ──────────────────────────────────────────────────────
-// Honor URL hash for deep-linking (e.g. Teams tab to #available)
-(function() {
-  const hash = location.hash.replace('#', '');
-  if (TABS.includes(hash) && hash !== 'inventory') {
-    // Will be applied after app loads — store it
-    window._initialTab = hash;
-  }
-})();
-
-initMsal();
-</script>
+<footer>Meridian Management · Internal Tools</footer>
 </body>
 </html>
